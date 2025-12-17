@@ -1,0 +1,32 @@
+# Node modules
+node_modules/
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# OS files
+.DS_Store
+Thumbs.db
+# Next.js build
+.next/
+out/
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Supabase local
+supabase/migrations/
+supabase/.temp/
+# PWA service worker cache
+public/sw.js
+# VSCode
+.vscode/
+# Python venv (si tu ajoutes Python plus tard)
+venv/
+__pycache__/
+*.pyc
