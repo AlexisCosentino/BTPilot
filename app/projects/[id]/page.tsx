@@ -162,10 +162,9 @@ function EntryList({
                         type="button"
                         onClick={() => onEditStart(entry)}
                         disabled={isActionDisabled}
-                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:shadow disabled:translate-y-0 disabled:opacity-60"
-                      >
+                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50">
                         <EditIcon className="h-4 w-4" />
-                        <span className="hidden sm:inline">Edit</span>
+                        <span>Edit</span>
                       </button>
                     )
                   ) : null}
@@ -173,11 +172,10 @@ function EntryList({
                     type="button"
                     onClick={() => onDelete(entry)}
                     disabled={isActionDisabled}
-                    className="inline-flex items-center gap-1 rounded-full border border-rose-100 bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow disabled:translate-y-0 disabled:opacity-60"
-                  >
+                    className="inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 hover:text-rose-800 disabled:opacity-50">
                     <TrashIcon className="h-4 w-4" />
-                    <span className="hidden sm:inline">
-                      {isDeleting ? "Deleting..." : "Delete"}
+                    <span>
+                      {isDeleting ? "Deleting…" : "Delete"}
                     </span>
                   </button>
                 </div>
@@ -758,78 +756,77 @@ export default function ProjectDetailPage() {
       ) : (
         <>
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-sm">
-          <div className={`relative px-4 py-5 sm:px-6 ${notebookBackground}`}>
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/70" />
-            <div className="absolute left-8 top-0 h-full w-px bg-slate-200" />
-            {entryActionError ? (
-              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 shadow-sm">
-                {entryActionError}
-              </div>
-            ) : null}
-            <EntryList
-              entries={sortedEntries}
-              editingEntryId={editingEntryId}
-              editingValue={editingValue}
-              deletingEntryId={deletingEntryId}
-              savingEntryId={savingEntryId}
-              onEditChange={setEditingValue}
-              onEditStart={startEditingEntry}
-              onEditCancel={cancelEditingEntry}
-              onEditSave={saveEditingEntry}
-              onDelete={handleDeleteEntry}
-            />
-          </div>
-
-          <div className="border-t border-slate-200 bg-white/95 px-4 py-4 sm:px-6">
-            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 shadow-inner">
-              <textarea
-                value={textValue}
-                onChange={(event) => setTextValue(event.target.value)}
-                placeholder="Write a note..."
-                className="min-h-[72px] w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
-              />
-              {composerError ? (
-                <p className="text-xs font-semibold text-rose-700">{composerError}</p>
+            <div className={`relative px-4 py-5 sm:px-6 ${notebookBackground}`}>
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/70" />
+              <div className="absolute left-8 top-0 h-full w-px bg-slate-200" />
+              {entryActionError ? (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 shadow-sm">
+                  {entryActionError}
+                </div>
               ) : null}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
-                  >
-                    📷 Add image
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImagePick}
-                  />
-                  <button
-                    type="button"
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold shadow-sm transition ${
-                      isRecording
+              <EntryList
+                entries={sortedEntries}
+                editingEntryId={editingEntryId}
+                editingValue={editingValue}
+                deletingEntryId={deletingEntryId}
+                savingEntryId={savingEntryId}
+                onEditChange={setEditingValue}
+                onEditStart={startEditingEntry}
+                onEditCancel={cancelEditingEntry}
+                onEditSave={saveEditingEntry}
+                onDelete={handleDeleteEntry}
+              />
+            </div>
+
+            <div className="border-t border-slate-200 bg-white/95 px-4 py-4 sm:px-6">
+              <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 shadow-inner">
+                <textarea
+                  value={textValue}
+                  onChange={(event) => setTextValue(event.target.value)}
+                  placeholder="Write a note..."
+                  className="min-h-[72px] w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
+                />
+                {composerError ? (
+                  <p className="text-xs font-semibold text-rose-700">{composerError}</p>
+                ) : null}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+                    >
+                      📷 Add image
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImagePick}
+                    />
+                    <button
+                      type="button"
+                      onClick={isRecording ? stopRecording : startRecording}
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold shadow-sm transition ${isRecording
                         ? "bg-rose-600 text-white hover:bg-rose-500"
                         : "bg-white text-slate-700 hover:-translate-y-0.5 hover:shadow"
-                    }`}
+                        }`}
+                    >
+                      {isRecording ? "■ Stop recording" : "🎙️ Record audio"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddText}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow disabled:translate-y-0 disabled:opacity-60"
                   >
-                    {isRecording ? "■ Stop recording" : "🎙️ Record audio"}
+                    {isSubmitting ? "Saving..." : "Add text"}
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddText}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow disabled:translate-y-0 disabled:opacity-60"
-                >
-                  {isSubmitting ? "Saving..." : "Add text"}
-                </button>
               </div>
             </div>
-          </div>
           </div>
           {project ? (
             <div className="rounded-3xl border border-rose-100 bg-white/95 px-4 py-4 shadow-sm sm:px-6">

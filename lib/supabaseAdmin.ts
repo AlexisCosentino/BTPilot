@@ -107,10 +107,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      project_entries: {
+        Row: {
+          id: string;
+          project_id: string;
+          company_id: string;
+          entry_type: Database["public"]["Enums"]["project_entry_type"];
+          text_content: string | null;
+          photo_url: string | null;
+          audio_url: string | null;
+          metadata: Record<string, unknown> | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          company_id: string;
+          entry_type: Database["public"]["Enums"]["project_entry_type"];
+          text_content?: string | null;
+          photo_url?: string | null;
+          audio_url?: string | null;
+          metadata?: Record<string, unknown> | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          company_id?: string;
+          entry_type?: Database["public"]["Enums"]["project_entry_type"];
+          text_content?: string | null;
+          photo_url?: string | null;
+          audio_url?: string | null;
+          metadata?: Record<string, unknown> | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
-    Enums: Record<string, never>;
+    Enums: {
+      project_entry_type: "text" | "photo" | "audio";
+      project_status:
+        | "draft"
+        | "planned"
+        | "in_progress"
+        | "on_hold"
+        | "completed"
+        | "canceled";
+      quote_status: "draft" | "sent" | "accepted" | "rejected" | "expired";
+      task_status: "open" | "in_progress" | "blocked" | "completed" | "canceled";
+    };
     CompositeTypes: Record<string, never>;
   };
 };

@@ -151,9 +151,10 @@ export default function DashboardPage() {
             const tone = statusTone[project.status] ?? "bg-slate-100 text-slate-700";
 
             return (
-              <article
+              <Link
                 key={project.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                href={`/projects/${project.id}`}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -168,7 +169,7 @@ export default function DashboardPage() {
                     {project.status.replace("_", " ")}
                   </span>
                 </div>
-              </article>
+              </Link>
             );
           })}
         </div>
