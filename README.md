@@ -49,3 +49,6 @@ BTPilot/
 - **Backend** : routes API pour CRUD chantier / entrée / synthèse / devis / tickets  
 - **Supabase** : base de données et stockage fichiers  
 - **OpenAI API** : génération des synthèses  
+
+
+set NODE_TLS_REJECT_UNAUTHORIZED=0

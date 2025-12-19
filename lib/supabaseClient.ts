@@ -1,21 +1,23 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("Missing Supabase environment variables");
+type CreateOptions = {
+  accessToken?: string;
+};
+
+export function createSupabaseClient({ accessToken }: CreateOptions = {}): SupabaseClient {
+  const authHeaders = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    },
+    global: {
+      headers: authHeaders
+    }
+  });
 }
-
-let client: ReturnType<typeof createClient> | null = null;
-
-export const supabaseClient = (() => {
-  if (!client) {
-    client = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: true
-      }
-    });
-  }
-  return client;
-})();
