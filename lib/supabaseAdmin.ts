@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-type Database = {
+export type Database = {
   public: {
     Tables: {
       companies: {
@@ -26,6 +26,51 @@ type Database = {
           id?: string;
           name?: string;
           owner_user_id?: string;
+          metadata?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      projects: {
+        Row: {
+          id: string;
+          company_id: string;
+          name: string;
+          description: string | null;
+          status: string;
+          location: string | null;
+          created_by: string;
+          starts_on: string | null;
+          ends_on: string | null;
+          metadata: Record<string, unknown> | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          name: string;
+          description?: string | null;
+          status?: string;
+          location?: string | null;
+          created_by: string;
+          starts_on?: string | null;
+          ends_on?: string | null;
+          metadata?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          name?: string;
+          description?: string | null;
+          status?: string;
+          location?: string | null;
+          created_by?: string;
+          starts_on?: string | null;
+          ends_on?: string | null;
           metadata?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;

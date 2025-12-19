@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
+import { SignInButton, useAuth } from "@clerk/nextjs";
 
 type FormValues = {
   name: string;
@@ -11,6 +12,7 @@ type FormValues = {
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
@@ -52,6 +54,39 @@ export default function NewProjectPage() {
       setSubmitError("Could not create project. Please try again.");
     }
   });
+
+  if (!isLoaded) {
+    return (
+      <section className="mx-auto flex max-w-2xl flex-col gap-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-600">Checking your session...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <section className="mx-auto flex max-w-2xl flex-col gap-6">
+        <header className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Projects
+          </p>
+          <h1 className="text-3xl font-semibold leading-tight text-slate-900">
+            Sign in to create a project
+          </h1>
+          <p className="text-sm text-slate-600">
+            You need an account before creating a new chantier.
+          </p>
+        </header>
+        <SignInButton mode="modal">
+          <button className="inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+            Sign in or sign up
+          </button>
+        </SignInButton>
+      </section>
+    );
+  }
 
   return (
     <section className="mx-auto flex max-w-2xl flex-col gap-6">

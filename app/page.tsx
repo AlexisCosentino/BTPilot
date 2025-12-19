@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, useAuth } from "@clerk/nextjs";
 
 type Project = {
   id: string;
@@ -99,12 +99,21 @@ export default function DashboardPage() {
             View your latest chantiers and keep work moving.
           </p>
         </div>
-        <Link
-          href="/projects/new"
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-        >
-          Create new project
-        </Link>
+        <SignedIn>
+          <Link
+            href="/projects/new"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          >
+            Create new project
+          </Link>
+        </SignedIn>
+        <SignedOut>
+          <SignInButton mode="modal">
+            <button className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+              Sign in or sign up
+            </button>
+          </SignInButton>
+        </SignedOut>
       </header>
 
       {loading ? (

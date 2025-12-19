@@ -32,11 +32,9 @@ async function getProject(id: string, accessToken: string): Promise<Project | nu
   return data ?? null;
 }
 
-export default async function ProjectDetailPage(props: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await props.params;
-  const { userId, getToken } = auth();
+export default async function ProjectDetailPage(props: { params: { id: string } }) {
+  const { id } = props.params;
+  const { userId, getToken } = await auth();
 
   if (!userId) {
     notFound();
