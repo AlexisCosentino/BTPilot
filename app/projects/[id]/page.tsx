@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type SVGProps } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Camera, Check, Mic, Pencil, Plus, Square, Trash2, X } from "lucide-react";
 
 type EntryType = "text" | "photo" | "audio";
+type EntrySubtype = "task" | "client_change" | null;
 
 type Project = {
   id: string;
@@ -22,47 +24,62 @@ type Entry = {
   audio_url: string | null;
   created_by: string;
   created_at: string;
+  entry_subtype?: EntrySubtype;
+  is_active?: boolean;
+  parent_entry_id?: string | null;
+  superseded_at?: string | null;
   optimistic?: boolean;
 };
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
-const timeFormatter = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" });
+const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
+  hour: "2-digit",
   minute: "2-digit"
 });
 
-function TrashIcon(props: SVGProps<SVGSVGElement>) {
+const statusLabels: Record<string, string> = {
+  draft: "Brouillon",
+  planned: "Planifié",
+  in_progress: "Chantier en cours",
+  on_hold: "En pause",
+  completed: "Terminé",
+  canceled: "Annulé"
+};
+
+const entrySubtypeLabels: Record<Exclude<EntrySubtype, null>, string> = {
+  task: "Tâche",
+  client_change: "Demande client"
+};
+
+function EntrySubtypeBadge({ subtype }: { subtype: EntrySubtype | undefined }) {
+  if (!subtype) return null;
+  const label = entrySubtypeLabels[subtype];
+  if (!label) return null;
+
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6 7h12m-9 3v7m6-7v7M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7H6Z"
-      />
-    </svg>
+    <span className="inline-flex items-center rounded-full border border-gray-200 bg-surface-light px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+      {label}
+    </span>
   );
 }
 
-function EditIcon(props: SVGProps<SVGSVGElement>) {
+function EditedBadge({ parentId }: { parentId: string | null | undefined }) {
+  if (!parentId) return null;
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="m4 16 7.5-7.5a2.121 2.121 0 0 1 3 0l1 1a2.121 2.121 0 0 1 0 3L8 20H4v-4Z"
-      />
-    </svg>
+    <span className="inline-flex items-center rounded-full border border-gray-200 bg-surface-light px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
+      Modifié
+    </span>
   );
 }
 
 function EntryContent({ entry }: { entry: Entry }) {
   if (entry.entry_type === "photo" && entry.photo_url) {
     return (
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface-light">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={entry.photo_url}
-          alt="Project entry"
+          alt="Photo chantier"
           className="h-auto max-h-96 w-full object-cover"
         />
       </div>
@@ -71,19 +88,19 @@ function EntryContent({ entry }: { entry: Entry }) {
 
   if (entry.entry_type === "audio" && entry.audio_url) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Audio</span>
+      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-surface-light px-3 py-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">Audio</span>
         <audio controls className="w-full">
           <source src={entry.audio_url} />
-          Your browser does not support the audio element.
+          Votre navigateur ne supporte pas la lecture audio.
         </audio>
       </div>
     );
   }
 
   return (
-    <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800">
-      {entry.text_content || "Untitled note"}
+    <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-text-main">
+      {entry.text_content || "Note sans titre"}
     </p>
   );
 }
@@ -115,13 +132,13 @@ function EntryList({
 }: EntryListProps) {
   if (!entries.length) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-12 text-center shadow-sm">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-          📒
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center shadow-sm">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-light text-brand shadow-inner">
+          <span className="text-sm font-bold">Note</span>
         </div>
-        <h3 className="mt-3 text-lg font-semibold text-slate-900">Blank notebook</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Add a quick note, drop in a photo, or record an audio clip to get started.
+        <h3 className="mt-3 text-lg font-semibold text-text-main">Carnet vide</h3>
+        <p className="mt-1 text-sm text-text-muted">
+          Ajoutez une note, une photo ou un mémo vocal pour démarrer le suivi chantier.
         </p>
       </div>
     );
@@ -140,31 +157,34 @@ function EntryList({
         return (
           <li
             key={entry.id}
-            className="relative flex gap-4 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur"
+            className="relative flex gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold uppercase text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-xs font-semibold uppercase text-white">
               {label[0]}
             </div>
             <div className="flex-1 space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {label}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  <span>{label}</span>
+                  <EntrySubtypeBadge subtype={entry.entry_subtype ?? null} />
+                  <EditedBadge parentId={entry.parent_entry_id ?? null} />
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-text-muted">
                   <span>{timeFormatter.format(new Date(entry.created_at))}</span>
                   {canEdit ? (
                     isEditing ? (
-                      <span className="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
-                        Editing
+                      <span className="rounded-full bg-accent/15 px-2 py-1 text-[11px] font-semibold text-accent">
+                        En modification
                       </span>
                     ) : (
                       <button
                         type="button"
                         onClick={() => onEditStart(entry)}
                         disabled={isActionDisabled}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50">
-                        <EditIcon className="h-4 w-4" />
-                        <span>Edit</span>
+                        className="inline-flex items-center gap-1.5 rounded-md border border-brand/20 bg-white px-3 py-1.5 text-xs font-semibold text-brand transition hover:border-brand/40 hover:text-brand disabled:opacity-50"
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                        <span>Modifier</span>
                       </button>
                     )
                   ) : null}
@@ -172,11 +192,10 @@ function EntryList({
                     type="button"
                     onClick={() => onDelete(entry)}
                     disabled={isActionDisabled}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 hover:text-rose-800 disabled:opacity-50">
-                    <TrashIcon className="h-4 w-4" />
-                    <span>
-                      {isDeleting ? "Deleting…" : "Delete"}
-                    </span>
+                    className="inline-flex items-center gap-1.5 rounded-md border border-warning/30 bg-white px-3 py-1.5 text-xs font-semibold text-warning transition hover:border-warning/50 hover:bg-warning/5 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    <span>{isDeleting ? "Suppression..." : "Supprimer"}</span>
                   </button>
                 </div>
               </div>
@@ -186,24 +205,26 @@ function EntryList({
                     value={editingValue}
                     onChange={(event) => onEditChange(event.target.value)}
                     disabled={isSaving}
-                    className="min-h-[120px] w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none disabled:bg-slate-50"
+                    className="min-h-[120px] w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-text-main shadow-sm placeholder:text-text-muted focus:border-brand focus:outline-none disabled:bg-surface-light"
                   />
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => onEditSave(entry.id)}
                       disabled={isSaving || !editingValue.trim()}
-                      className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow disabled:translate-y-0 disabled:opacity-60"
+                      className="inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-xs font-semibold text-white shadow transition hover:bg-orange-500 disabled:opacity-60"
                     >
-                      {isSaving ? "Saving..." : "Save"}
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                      <span>{isSaving ? "Enregistrement..." : "Enregistrer"}</span>
                     </button>
                     <button
                       type="button"
                       onClick={onEditCancel}
                       disabled={isSaving}
-                      className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow disabled:translate-y-0 disabled:opacity-60"
+                      className="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-text-main shadow-sm transition hover:border-brand/30 hover:text-brand disabled:opacity-60"
                     >
-                      Cancel
+                      <X className="h-4 w-4" aria-hidden="true" />
+                      <span>Annuler</span>
                     </button>
                   </div>
                 </div>
@@ -211,7 +232,7 @@ function EntryList({
                 <EntryContent entry={entry} />
               )}
               {entry.optimistic ? (
-                <p className="text-[11px] font-semibold text-amber-700">Saving...</p>
+                <p className="text-[11px] font-semibold text-accent">Envoi en cours...</p>
               ) : null}
             </div>
           </li>
@@ -275,7 +296,7 @@ async function resizeAndCompressImage(
   const context = canvas.getContext("2d");
 
   if (!context) {
-    throw new Error("Could not process image.");
+    throw new Error("Impossible de traiter l'image.");
   }
 
   context.drawImage(image, 0, 0, targetWidth, targetHeight);
@@ -286,7 +307,7 @@ async function resizeAndCompressImage(
         if (result) {
           resolve(result);
         } else {
-          reject(new Error("Could not compress image."));
+          reject(new Error("Impossible de compresser l'image."));
         }
       },
       "image/jpeg",
@@ -298,7 +319,7 @@ async function resizeAndCompressImage(
   const estimatedSize = estimateDataUrlBytes(dataUrl);
 
   if (estimatedSize === null) {
-    throw new Error("Could not read the compressed image.");
+    throw new Error("Lecture de l'image compressée impossible.");
   }
 
   return { dataUrl, size: estimatedSize, blob };
@@ -316,6 +337,7 @@ export default function ProjectDetailPage() {
   const [entryActionError, setEntryActionError] = useState<string | null>(null);
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
   const [textValue, setTextValue] = useState("");
+  const [textSubtype, setTextSubtype] = useState<EntrySubtype>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [audioSupported, setAudioSupported] = useState(false);
@@ -330,12 +352,17 @@ export default function ProjectDetailPage() {
   const recordingChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const activeEntries = useMemo(
+    () => entries.filter((entry) => entry.is_active !== false),
+    [entries]
+  );
+
   const sortedEntries = useMemo(
     () =>
-      [...entries].sort(
+      [...activeEntries].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       ),
-    [entries]
+    [activeEntries]
   );
 
   useEffect(() => {
@@ -358,7 +385,7 @@ export default function ProjectDetailPage() {
       setProject(null);
       setEntries([]);
       setLoading(false);
-      setError("Project id is missing.");
+      setError("Identifiant du chantier manquant.");
       return;
     }
 
@@ -380,8 +407,8 @@ export default function ProjectDetailPage() {
         if (!response.ok || !body.project) {
           const message =
             response.status === 401
-              ? "Please sign in to view this project."
-              : body.error || "Project not found.";
+              ? "Connectez-vous pour ouvrir ce chantier."
+              : body.error || "Chantier introuvable.";
           setProject(null);
           setEntries([]);
           setError(message);
@@ -393,11 +420,11 @@ export default function ProjectDetailPage() {
         setEntries(Array.isArray(body.entries) ? body.entries : []);
         setLoading(false);
       } catch (err) {
-        console.error("[project-detail] Failed to load project", err);
+        console.error("[project-detail] Chargement chantier impossible", err);
         if (!active) return;
         setProject(null);
         setEntries([]);
-        setError("Failed to load this project. Please try again.");
+        setError("Impossible de charger ce chantier. Recommencez.");
         setLoading(false);
       }
     };
@@ -409,7 +436,7 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   type CreateEntryInput =
-    | { type: "text"; text: string }
+    | { type: "text"; text: string; entrySubtype: EntrySubtype }
     | { type: "photo"; file: File; previewUrl: string }
     | { type: "audio"; file: File; previewUrl: string };
 
@@ -420,7 +447,9 @@ export default function ProjectDetailPage() {
 
     if (!optimisticContent) {
       setComposerError(
-        type === "text" ? "Write something first." : "Add a file or recording before posting."
+        type === "text"
+          ? "Ajoutez du texte avant d'enregistrer."
+          : "Ajoutez un fichier ou un enregistrement avant d'envoyer."
       );
       return;
     }
@@ -432,8 +461,12 @@ export default function ProjectDetailPage() {
       text_content: type === "text" ? optimisticContent : null,
       photo_url: type === "photo" ? optimisticContent : null,
       audio_url: type === "audio" ? optimisticContent : null,
-      created_by: "you",
+      created_by: "vous",
       created_at: new Date().toISOString(),
+      entry_subtype: type === "text" ? payload.entrySubtype : null,
+      is_active: true,
+      parent_entry_id: null,
+      superseded_at: null,
       optimistic: true
     };
 
@@ -447,7 +480,11 @@ export default function ProjectDetailPage() {
         response = await fetch(`/api/projects/${id}/entries`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type, content: payload.text })
+          body: JSON.stringify({
+            type,
+            content: payload.text,
+            entry_subtype: payload.entrySubtype ?? null
+          })
         });
       } else {
         const formData = new FormData();
@@ -465,9 +502,9 @@ export default function ProjectDetailPage() {
         const fallbackError =
           response.status === 413
             ? type === "photo"
-              ? "That image is too large. Please keep it under 1 MB."
-              : "That file is too large. Please keep it under 3 MB."
-            : "Failed to create entry.";
+              ? "Photo trop lourde (max 1 Mo)."
+              : "Fichier audio trop lourd (max 3 Mo)."
+            : "Impossible d'ajouter la note.";
         throw new Error(body.error || fallbackError);
       }
 
@@ -475,9 +512,9 @@ export default function ProjectDetailPage() {
         [...prev.filter((item) => item.id !== optimisticEntry.id), body.entry as Entry]
       );
     } catch (err) {
-      console.error("[project-detail] Failed to create entry", err);
+      console.error("[project-detail] Création de note impossible", err);
       setEntries((prev) => prev.filter((item) => item.id !== optimisticEntry.id));
-      setComposerError(err instanceof Error ? err.message : "Failed to save entry.");
+      setComposerError("Impossible de sauvegarder la note.");
     } finally {
       setIsSubmitting(false);
     }
@@ -499,7 +536,7 @@ export default function ProjectDetailPage() {
   const saveEditingEntry = async (entryId: string) => {
     const trimmed = editingValue.trim();
     if (!trimmed) {
-      setEntryActionError("Text cannot be empty.");
+      setEntryActionError("Le texte ne peut pas être vide.");
       return;
     }
 
@@ -521,15 +558,24 @@ export default function ProjectDetailPage() {
       const body = (await response.json().catch(() => ({}))) as { entry?: Entry; error?: string };
 
       if (!response.ok || !body.entry) {
-        throw new Error(body.error || "Failed to update entry.");
+        throw new Error(body.error || "Mise à jour impossible.");
       }
 
-      setEntries((prev) => prev.map((item) => (item.id === entryId ? (body.entry as Entry) : item)));
+      setEntries((prev) => {
+        const withoutOld = prev.filter((item) => item.id !== entryId);
+        return [...withoutOld, body.entry as Entry];
+      });
       setEditingEntryId(null);
       setEditingValue("");
     } catch (err) {
-      setEntryActionError(err instanceof Error ? err.message : "Failed to update entry.");
-      setEntries((prev) => prev.map((item) => (item.id === entryId ? current : item)));
+      setEntryActionError("Mise à jour impossible.");
+      setEntries((prev) => {
+        const hasOld = prev.some((item) => item.id === entryId);
+        if (hasOld) {
+          return prev.map((item) => (item.id === entryId ? current : item));
+        }
+        return [...prev, current];
+      });
     } finally {
       setSavingEntryId(null);
     }
@@ -555,10 +601,10 @@ export default function ProjectDetailPage() {
       const body = (await response.json().catch(() => ({}))) as { error?: string };
 
       if (!response.ok) {
-        throw new Error(body.error || "Failed to delete entry.");
+        throw new Error(body.error || "Suppression impossible.");
       }
     } catch (err) {
-      setEntryActionError(err instanceof Error ? err.message : "Failed to delete entry.");
+      setEntryActionError("Suppression impossible.");
       setEntries((prev) =>
         prev.some((item) => item.id === entry.id) ? prev : [...prev, entry]
       );
@@ -569,18 +615,19 @@ export default function ProjectDetailPage() {
 
   const handleAddText = async () => {
     if (!textValue.trim()) {
-      setComposerError("Write something first.");
+      setComposerError("Ajoutez une note avant d'enregistrer.");
       return;
     }
-    await createEntry({ type: "text", text: textValue });
+    await createEntry({ type: "text", text: textValue, entrySubtype: textSubtype });
     setTextValue("");
+    setTextSubtype(null);
   };
 
   const handleImagePick = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setComposerError("Please choose an image file.");
+      setComposerError("Choisissez un fichier image.");
       return;
     }
 
@@ -589,9 +636,7 @@ export default function ProjectDetailPage() {
       const { dataUrl, size, blob } = await resizeAndCompressImage(file);
 
       if (size > IMAGE_SIZE_LIMIT_BYTES) {
-        setComposerError(
-          "That image is too large after compression. Please upload a smaller photo (under 1 MB)."
-        );
+        setComposerError("Photo trop lourde après compression (max 1 Mo).");
         return;
       }
 
@@ -601,8 +646,8 @@ export default function ProjectDetailPage() {
 
       await createEntry({ type: "photo", file: compressedFile, previewUrl: dataUrl });
     } catch (err) {
-      console.error("[project-detail] Failed to read image", err);
-      setComposerError("Could not read that image file.");
+      console.error("[project-detail] Lecture image impossible", err);
+      setComposerError("Lecture du fichier image impossible.");
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -612,7 +657,7 @@ export default function ProjectDetailPage() {
 
   const startRecording = async () => {
     if (!audioSupported) {
-      setComposerError("Audio recording is not supported in this browser.");
+      setComposerError("L'enregistrement audio n'est pas supporté sur cet appareil.");
       return;
     }
 
@@ -634,7 +679,7 @@ export default function ProjectDetailPage() {
           type: recorder.mimeType || "audio/webm"
         });
         if (blob.size > AUDIO_SIZE_LIMIT_BYTES) {
-          setComposerError("Recording is too large. Please keep audio under 3 MB.");
+          setComposerError("Mémo vocal trop lourd (max 3 Mo).");
           return;
         }
 
@@ -648,8 +693,8 @@ export default function ProjectDetailPage() {
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
     } catch (err) {
-      console.error("[project-detail] Failed to start recording", err);
-      setComposerError("Could not start audio recording. Check microphone permissions.");
+      console.error("[project-detail] Démarrage enregistrement impossible", err);
+      setComposerError("Micro inaccessible. Vérifiez les autorisations.");
     }
   };
 
@@ -663,7 +708,7 @@ export default function ProjectDetailPage() {
     if (!project || !id) return;
 
     const confirmed = window.confirm(
-      "Delete this project and all of its entries? This cannot be undone."
+      "Supprimer ce chantier et toutes les notes ? Cette action est définitive."
     );
 
     if (!confirmed) return;
@@ -676,94 +721,89 @@ export default function ProjectDetailPage() {
       const body = (await response.json().catch(() => ({}))) as { error?: string };
 
       if (!response.ok) {
-        throw new Error(body.error || "Failed to delete project.");
+        throw new Error(body.error || "Suppression du chantier impossible.");
       }
 
       router.push("/");
     } catch (err) {
-      setProjectActionError(err instanceof Error ? err.message : "Failed to delete project.");
+      setProjectActionError("Suppression du chantier impossible.");
       setIsDeletingProject(false);
     }
   };
 
-  const notebookBackground =
-    "bg-[repeating-linear-gradient(to_bottom,#f8fafc,#f8fafc_44px,#e2e8f0_45px,#f8fafc_46px)]";
-
   if (!id) {
     return (
-      <section className="mx-auto flex max-w-3xl flex-col gap-4">
+      <section className="mx-auto flex max-w-4xl flex-col gap-4">
         <header className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Project</p>
-          <h1 className="text-3xl font-semibold leading-tight text-slate-900">Notebook</h1>
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Chantier</p>
+          <h1 className="text-3xl font-bold leading-tight text-text-main">Carnet de bord</h1>
         </header>
-        <div className="rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-rose-700">Project id is missing.</p>
-          <p className="mt-1 text-sm text-slate-600">Check the URL and try again.</p>
+        <div className="rounded-lg border border-warning/30 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-warning">Identifiant du chantier manquant.</p>
+          <p className="mt-1 text-sm text-text-muted">Vérifiez l'adresse et réessayez.</p>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header className="space-y-2">
-        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <Link href="/" className="text-slate-600 hover:text-slate-900">
-            Projects
+    <section className="mx-auto flex max-w-4xl flex-col gap-4 sm:gap-6">
+      <header className="rounded-lg border border-brand/15 bg-white px-4 py-4 shadow-sm sm:px-5">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+          <Link href="/" className="text-text-muted hover:text-text-main">
+            Chantiers
           </Link>
-          <span className="text-slate-400">/</span>
-          <span>Notebook</span>
+          <span className="text-text-muted">/</span>
+          <span className="text-text-main">Carnet</span>
         </div>
         {project ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold leading-tight text-slate-900">
-                {project.name}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Created {dateFormatter.format(new Date(project.created_at))}
+              <h1 className="text-3xl font-bold leading-tight text-text-main">{project.name}</h1>
+              <p className="mt-1 text-sm text-text-muted">
+                Créé le {dateFormatter.format(new Date(project.created_at))}
               </p>
             </div>
-            <span className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
-              {project.status.replace("_", " ")}
+            <span className="inline-flex items-center rounded-full bg-brand px-3 py-1 text-xs font-semibold uppercase text-white">
+              {statusLabels[project.status] ?? project.status.replace("_", " ")}
             </span>
           </div>
         ) : (
-          <div>
-            <h1 className="text-3xl font-semibold leading-tight text-slate-900">Project</h1>
+          <div className="mt-3">
+            <h1 className="text-3xl font-bold leading-tight text-text-main">Chantier</h1>
           </div>
         )}
         {project?.description ? (
-          <p className="text-sm text-slate-700">{project.description}</p>
+          <p className="mt-2 text-sm text-text-main">{project.description}</p>
         ) : (
-          <p className="text-sm text-slate-500">Keep notes, photos, and audio logs in one place.</p>
+          <p className="mt-2 text-sm text-text-muted">
+            Notes de chantier, photos et mémos vocaux regroupés pour l'équipe.
+          </p>
         )}
       </header>
 
       {loading ? (
-        <div className="space-y-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="h-6 w-1/3 rounded-lg bg-slate-100" />
-          <div className="h-4 w-2/3 rounded-lg bg-slate-100" />
-          <div className="h-40 rounded-2xl bg-slate-100" />
+        <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="h-6 w-1/3 rounded-md bg-surface-light" />
+          <div className="h-4 w-2/3 rounded-md bg-surface-light" />
+          <div className="h-40 rounded-lg bg-surface-light" />
         </div>
       ) : error ? (
-        <div className="rounded-3xl border border-rose-100 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-rose-700">{error}</p>
-          <p className="mt-1 text-sm text-slate-600">
-            Refresh the page or check your access before trying again.
+        <div className="rounded-lg border border-warning/30 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-warning">{error}</p>
+          <p className="mt-1 text-sm text-text-muted">
+            Rafraîchissez la page ou vérifiez vos droits d'accès.
           </p>
         </div>
       ) : (
         <>
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-sm">
-            <div className={`relative px-4 py-5 sm:px-6 ${notebookBackground}`}>
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/70" />
-              <div className="absolute left-8 top-0 h-full w-px bg-slate-200" />
-              {entryActionError ? (
-                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 shadow-sm">
-                  {entryActionError}
-                </div>
-              ) : null}
+          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+            {entryActionError ? (
+              <div className="border-b border-warning/30 bg-warning/5 px-4 py-3 text-sm font-semibold text-warning sm:px-5">
+                {entryActionError}
+              </div>
+            ) : null}
+            <div className="px-4 py-4 sm:px-5">
               <EntryList
                 entries={sortedEntries}
                 editingEntryId={editingEntryId}
@@ -778,25 +818,59 @@ export default function ProjectDetailPage() {
               />
             </div>
 
-            <div className="border-t border-slate-200 bg-white/95 px-4 py-4 sm:px-6">
-              <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 shadow-inner">
+            <div className="border-t border-gray-200 bg-surface-light px-4 py-4 sm:px-5">
+              <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-inner">
                 <textarea
                   value={textValue}
                   onChange={(event) => setTextValue(event.target.value)}
-                  placeholder="Write a note..."
-                  className="min-h-[72px] w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
+                  placeholder="Ajouter une note chantier..."
+                  className="min-h-[72px] w-full resize-none rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-text-main shadow-sm placeholder:text-text-muted focus:border-brand focus:outline-none"
                 />
+                <div className="flex flex-col gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    Catégorie (optionnel)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: "task" as EntrySubtype, label: "Tâche" },
+                      {
+                        value: "client_change" as EntrySubtype,
+                        label: "Modification demandée par le client"
+                      }
+                    ].map((option) => {
+                      const isSelected = textSubtype === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            setTextSubtype(isSelected ? null : option.value)
+                          }
+                          aria-pressed={isSelected}
+                          className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold shadow-sm transition ${
+                            isSelected
+                              ? "border-brand bg-brand/10 text-brand"
+                              : "border-gray-200 bg-white text-text-main hover:border-brand/30 hover:text-brand"
+                          }`}
+                        >
+                          <span>{option.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
                 {composerError ? (
-                  <p className="text-xs font-semibold text-rose-700">{composerError}</p>
+                  <p className="text-xs font-semibold text-warning">{composerError}</p>
                 ) : null}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+                      className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-text-main shadow-sm transition hover:border-brand/30 hover:text-brand"
                     >
-                      📷 Add image
+                      <Camera className="h-4 w-4" aria-hidden="true" />
+                      <span>Ajouter une photo</span>
                     </button>
                     <input
                       ref={fileInputRef}
@@ -808,43 +882,56 @@ export default function ProjectDetailPage() {
                     <button
                       type="button"
                       onClick={isRecording ? stopRecording : startRecording}
-                      className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold shadow-sm transition ${isRecording
-                        ? "bg-rose-600 text-white hover:bg-rose-500"
-                        : "bg-white text-slate-700 hover:-translate-y-0.5 hover:shadow"
-                        }`}
+                      className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold shadow-sm transition ${
+                        isRecording
+                          ? "bg-warning text-white hover:bg-[#b61f1f]"
+                          : "border border-gray-200 bg-white text-text-main hover:border-brand/30 hover:text-brand"
+                      }`}
                     >
-                      {isRecording ? "■ Stop recording" : "🎙️ Record audio"}
+                      {isRecording ? (
+                        <>
+                          <Square className="h-4 w-4" aria-hidden="true" />
+                          <span>Arrêter le mémo vocal</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="h-4 w-4" aria-hidden="true" />
+                          <span>Enregistrer un mémo</span>
+                        </>
+                      )}
                     </button>
                   </div>
                   <button
                     type="button"
                     onClick={handleAddText}
                     disabled={isSubmitting}
-                    className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow disabled:translate-y-0 disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-accent px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-orange-500 disabled:opacity-60"
                   >
-                    {isSubmitting ? "Saving..." : "Add text"}
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    <span>{isSubmitting ? "Enregistrement..." : "Ajouter la note"}</span>
                   </button>
                 </div>
               </div>
             </div>
           </div>
           {project ? (
-            <div className="rounded-3xl border border-rose-100 bg-white/95 px-4 py-4 shadow-sm sm:px-6">
+            <div className="rounded-lg border border-warning/30 bg-white px-4 py-4 shadow-sm sm:px-5">
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-rose-700">Danger zone</p>
-                <p className="text-sm text-slate-600">
-                  Permanently delete this project and all associated entries and files.
+                <p className="text-sm font-semibold text-warning">Suppression chantier</p>
+                <p className="text-sm text-text-muted">
+                  Supprimer définitivement ce chantier et tous les éléments associés.
                 </p>
                 {projectActionError ? (
-                  <p className="text-xs font-semibold text-rose-700">{projectActionError}</p>
+                  <p className="text-xs font-semibold text-warning">{projectActionError}</p>
                 ) : null}
                 <button
                   type="button"
                   onClick={handleDeleteProject}
                   disabled={isDeletingProject}
-                  className="inline-flex items-center justify-center rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-500 hover:shadow disabled:translate-y-0 disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-warning px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#b61f1f] disabled:opacity-60"
                 >
-                  {isDeletingProject ? "Deleting project..." : "Delete project"}
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  <span>{isDeletingProject ? "Suppression du chantier..." : "Supprimer le chantier"}</span>
                 </button>
               </div>
             </div>
@@ -853,4 +940,4 @@ export default function ProjectDetailPage() {
       )}
     </section>
   );
-}
+}

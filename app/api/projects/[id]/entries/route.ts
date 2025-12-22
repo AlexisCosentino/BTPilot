@@ -6,6 +6,7 @@ import { Buffer } from "buffer";
 import { supabaseAdmin, type Database } from "../../../../../lib/supabaseAdmin";
 
 type EntryType = Database["public"]["Enums"]["project_entry_type"];
+type EntrySubtype = "task" | "client_change" | null;
 
 type EntryResponse = {
   id: string;
@@ -15,42 +16,55 @@ type EntryResponse = {
   audio_url: string | null;
   created_by: string;
   created_at: string;
+  entry_subtype: EntrySubtype;
+  is_active: boolean;
+  parent_entry_id: string | null;
+  superseded_at: string | null;
+};
+
+type EntryRow = {
+  id: string;
+  entry_type: EntryType;
+  text_content: string | null;
+  photo_url: string | null;
+  audio_url: string | null;
+  created_by: string;
+  created_at: string;
+  entry_subtype: EntrySubtype;
+  is_active: boolean;
+  parent_entry_id: string | null;
+  superseded_at: string | null;
 };
 
 const PHOTO_SIZE_LIMIT_BYTES = 1_000_000;
 const AUDIO_SIZE_LIMIT_BYTES = 3_000_000;
 const PHOTO_BUCKET = "project-photos";
 const AUDIO_BUCKET = "project-audio";
+const ALLOWED_ENTRY_SUBTYPES: EntrySubtype[] = ["task", "client_change"];
+const columnSelect =
+  "id, entry_type, text_content, photo_url, audio_url, created_by, created_at, entry_subtype, is_active, parent_entry_id, superseded_at";
 
-function extractStoragePath(url: string | null, bucket: string): string | null {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    const segments = parsed.pathname.split("/").filter(Boolean);
-    const bucketIndex = segments.findIndex((segment) => segment === bucket);
-    if (bucketIndex === -1) return null;
-    const path = segments.slice(bucketIndex + 1);
-    return path.length ? decodeURIComponent(path.join("/")) : null;
-  } catch {
-    return null;
-  }
+function parseEntrySubtype(value: FormDataEntryValue | string | null): EntrySubtype {
+  if (typeof value !== "string") return null;
+  return ALLOWED_ENTRY_SUBTYPES.includes(value as EntrySubtype) ? (value as EntrySubtype) : null;
 }
 
-async function deleteStorageObject(bucket: string, url: string | null): Promise<boolean> {
-  const path = extractStoragePath(url, bucket);
-  if (!path) return true;
+function mapEntryRowToResponse(row: EntryRow): EntryResponse {
+  const entry_subtype = parseEntrySubtype(row.entry_subtype) ?? null;
 
-  const { error } = await supabaseAdmin.storage.from(bucket).remove([path]);
-  if (error) {
-    console.error("[api/projects/:id/entries] Failed to delete file from storage", {
-      bucket,
-      path,
-      error
-    });
-    return false;
-  }
-
-  return true;
+  return {
+    id: row.id,
+    entry_type: row.entry_type,
+    text_content: row.text_content,
+    photo_url: row.photo_url,
+    audio_url: row.audio_url,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    entry_subtype,
+    is_active: row.is_active,
+    parent_entry_id: row.parent_entry_id,
+    superseded_at: row.superseded_at
+  };
 }
 
 function sanitizeExtension(mime: string | null): string {
@@ -98,10 +112,15 @@ async function getCompanyIdForUser(userId: string): Promise<string | null> {
   return data?.company_id ?? null;
 }
 
-async function ensureProjectForCompany(projectId: string, companyId: string): Promise<boolean> {
+type ProjectSnapshot = { id: string; status: string };
+
+async function getProjectSnapshot(
+  projectId: string,
+  companyId: string
+): Promise<ProjectSnapshot | null> {
   const { data, error } = await supabaseAdmin
     .from("projects")
-    .select("id")
+    .select("id, status")
     .eq("id", projectId)
     .eq("company_id", companyId)
     .maybeSingle();
@@ -112,10 +131,10 @@ async function ensureProjectForCompany(projectId: string, companyId: string): Pr
       companyId,
       error
     });
-    return false;
+    return null;
   }
 
-  return Boolean(data);
+  return data ?? null;
 }
 
 async function getProjectEntries(
@@ -124,9 +143,10 @@ async function getProjectEntries(
 ): Promise<EntryResponse[] | null> {
   const { data, error } = await supabaseAdmin
     .from("project_entries")
-    .select("id, entry_type, text_content, photo_url, audio_url, created_by, created_at")
+    .select(columnSelect)
     .eq("project_id", projectId)
     .eq("company_id", companyId)
+    .or("is_active.is.null,is_active.eq.true")
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -138,17 +158,17 @@ async function getProjectEntries(
     return null;
   }
 
-  return data ?? [];
+  return (data ?? []).map(mapEntryRowToResponse);
 }
 
-async function getEntryForProject(
+async function getEntryRowForProject(
   entryId: string,
   projectId: string,
   companyId: string
-): Promise<EntryResponse | null> {
+): Promise<EntryRow | null> {
   const { data, error } = await supabaseAdmin
     .from("project_entries")
-    .select("id, entry_type, text_content, photo_url, audio_url, created_by, created_at")
+    .select(columnSelect)
     .eq("id", entryId)
     .eq("project_id", projectId)
     .eq("company_id", companyId)
@@ -164,7 +184,7 @@ async function getEntryForProject(
     return null;
   }
 
-  return data ?? null;
+  return (data as EntryRow) ?? null;
 }
 
 async function uploadFileToStorage(
@@ -208,9 +228,9 @@ export async function GET(
     );
   }
 
-  const projectExists = await ensureProjectForCompany(projectId, companyId);
+  const projectSnapshot = await getProjectSnapshot(projectId, companyId);
 
-  if (!projectExists) {
+  if (!projectSnapshot) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
@@ -243,9 +263,9 @@ export async function POST(
     );
   }
 
-  const projectExists = await ensureProjectForCompany(projectId, companyId);
+  const projectSnapshot = await getProjectSnapshot(projectId, companyId);
 
-  if (!projectExists) {
+  if (!projectSnapshot) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
@@ -253,6 +273,7 @@ export async function POST(
   let entryType: EntryType | null = null;
   let textContent: string | null = null;
   let file: File | null = null;
+  let entrySubtype: EntrySubtype = null;
 
   if (contentTypeHeader.startsWith("multipart/form-data")) {
     const formData = await request.formData();
@@ -273,16 +294,20 @@ export async function POST(
       const contentValue = formData.get("content");
       textContent = typeof contentValue === "string" ? contentValue.trim() : "";
     }
+
+    entrySubtype = parseEntrySubtype(formData.get("entry_subtype"));
   } else {
     const body = (await request.json().catch(() => ({}))) as {
       type?: EntryType | "image";
       content?: string | null;
+      entry_subtype?: EntrySubtype;
     };
     const normalizedType = body.type === "image" ? "photo" : body.type;
     entryType = normalizedType && ["text", "photo", "audio"].includes(normalizedType)
       ? (normalizedType as EntryType)
       : null;
     textContent = typeof body.content === "string" ? body.content.trim() : "";
+    entrySubtype = parseEntrySubtype(body.entry_subtype ?? null);
   }
 
   const allowedTypes: EntryType[] = ["text", "photo", "audio"];
@@ -360,13 +385,17 @@ export async function POST(
     text_content: entryType === "text" ? textContent : null,
     photo_url: photoUrl,
     audio_url: audioUrl,
-    created_by: userId
+    created_by: userId,
+    entry_subtype: entrySubtype,
+    is_active: true,
+    parent_entry_id: null,
+    superseded_at: null
   };
 
   const { data, error } = await supabaseAdmin
     .from("project_entries")
     .insert(payload)
-    .select("id, entry_type, text_content, photo_url, audio_url, created_by, created_at")
+    .select(columnSelect)
     .single();
 
   if (error || !data) {
@@ -377,7 +406,7 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ entry: data }, { status: 201 });
+  return NextResponse.json({ entry: mapEntryRowToResponse(data as EntryRow) }, { status: 201 });
 }
 
 export async function DELETE(
@@ -407,45 +436,25 @@ export async function DELETE(
     return NextResponse.json({ error: "Entry id is required" }, { status: 400 });
   }
 
-  const entry = await getEntryForProject(entryId, projectId, companyId);
+  const entry = await getEntryRowForProject(entryId, projectId, companyId);
 
   if (!entry) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
-  if (entry.entry_type === "photo") {
-    const removed = await deleteStorageObject(PHOTO_BUCKET, entry.photo_url);
-    if (!removed) {
-      return NextResponse.json(
-        { error: "Failed to delete the photo for this entry" },
-        { status: 500 }
-      );
-    }
-  }
-
-  if (entry.entry_type === "audio") {
-    const removed = await deleteStorageObject(AUDIO_BUCKET, entry.audio_url);
-    if (!removed) {
-      return NextResponse.json(
-        { error: "Failed to delete the audio for this entry" },
-        { status: 500 }
-      );
-    }
-  }
-
-  const { error: deleteError } = await supabaseAdmin
+  const { error: updateError } = await supabaseAdmin
     .from("project_entries")
-    .delete()
+    .update({ is_active: false, superseded_at: new Date().toISOString() })
     .eq("id", entryId)
     .eq("project_id", projectId)
     .eq("company_id", companyId);
 
-  if (deleteError) {
-    console.error("[api/projects/:id/entries] Failed to delete entry", {
+  if (updateError) {
+    console.error("[api/projects/:id/entries] Failed to deactivate entry", {
       entryId,
       projectId,
       companyId,
-      deleteError
+      updateError
     });
     return NextResponse.json({ error: "Could not delete entry" }, { status: 500 });
   }
@@ -489,34 +498,74 @@ export async function PATCH(
     return NextResponse.json({ error: "Text content cannot be empty" }, { status: 400 });
   }
 
-  const entry = await getEntryForProject(entryId, projectId, companyId);
+  const entry = await getEntryRowForProject(entryId, projectId, companyId);
 
   if (!entry) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+  }
+
+  const entrySubtype = parseEntrySubtype(entry.entry_subtype) ?? null;
+
+  if (entry.is_active === false) {
+    return NextResponse.json({ error: "Entry is no longer active" }, { status: 400 });
   }
 
   if (entry.entry_type !== "text") {
     return NextResponse.json({ error: "Only text entries can be edited" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const projectSnapshot = await getProjectSnapshot(projectId, companyId);
+
+  if (!projectSnapshot) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const newEntryInsert = {
+    project_id: projectId,
+    company_id: companyId,
+    entry_type: entry.entry_type,
+    text_content: text,
+    photo_url: null,
+    audio_url: null,
+    created_by: userId,
+    entry_subtype: entrySubtype,
+    is_active: true,
+    parent_entry_id: entryId,
+    superseded_at: null
+  };
+
+  const { data: newEntry, error: createError } = await supabaseAdmin
     .from("project_entries")
-    .update({ text_content: text })
-    .eq("id", entryId)
-    .eq("project_id", projectId)
-    .eq("company_id", companyId)
-    .select("id, entry_type, text_content, photo_url, audio_url, created_by, created_at")
+    .insert(newEntryInsert)
+    .select(columnSelect)
     .single();
 
-  if (error || !data) {
-    console.error("[api/projects/:id/entries] Failed to update entry", {
+  if (createError || !newEntry) {
+    console.error("[api/projects/:id/entries] Failed to create entry version", {
       entryId,
       projectId,
       companyId,
-      error
+      createError
     });
     return NextResponse.json({ error: "Could not update entry" }, { status: 500 });
   }
 
-  return NextResponse.json({ entry: data });
+  const { error: deactivateError } = await supabaseAdmin
+    .from("project_entries")
+    .update({ is_active: false, superseded_at: new Date().toISOString() })
+    .eq("id", entryId)
+    .eq("project_id", projectId)
+    .eq("company_id", companyId);
+
+  if (deactivateError) {
+    console.error("[api/projects/:id/entries] Failed to deactivate previous entry", {
+      entryId,
+      projectId,
+      companyId,
+      deactivateError
+    });
+    return NextResponse.json({ error: "Could not update entry" }, { status: 500 });
+  }
+
+  return NextResponse.json({ entry: mapEntryRowToResponse(newEntry as EntryRow) });
 }
