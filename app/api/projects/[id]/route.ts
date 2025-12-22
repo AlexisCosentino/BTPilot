@@ -3,7 +3,11 @@ import { NextResponse } from "next/server";
 
 import { deleteEntries, deleteProject, deleteStorageForEntries, getEntriesForDeletion } from "./cascade.service";
 import { getCompanyIdForUser } from "./permissions";
-import { getProjectEntries, getProjectForCompany } from "./project.service";
+import {
+  getProjectEntries,
+  getProjectForCompany,
+  getProjectStatusEvents
+} from "./project.service";
 
 export async function GET(
   _request: Request,
@@ -37,7 +41,13 @@ export async function GET(
     return NextResponse.json({ error: "Failed to load entries" }, { status: 500 });
   }
 
-  return NextResponse.json({ project, entries });
+  const statusEvents = await getProjectStatusEvents(projectId);
+
+  if (!statusEvents) {
+    return NextResponse.json({ error: "Failed to load status history" }, { status: 500 });
+  }
+
+  return NextResponse.json({ project, entries, status_events: statusEvents });
 }
 
 export async function DELETE(

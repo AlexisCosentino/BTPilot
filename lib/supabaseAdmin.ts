@@ -40,6 +40,13 @@ export type Database = {
           description: string | null;
           status: string;
           location: string | null;
+          client_first_name: string | null;
+          client_last_name: string | null;
+          client_address: string | null;
+          client_city: string | null;
+          client_postal_code: string | null;
+          client_phone: string | null;
+          client_email: string | null;
           created_by: string;
           starts_on: string | null;
           ends_on: string | null;
@@ -54,6 +61,13 @@ export type Database = {
           description?: string | null;
           status?: string;
           location?: string | null;
+          client_first_name?: string | null;
+          client_last_name?: string | null;
+          client_address?: string | null;
+          client_city?: string | null;
+          client_postal_code?: string | null;
+          client_phone?: string | null;
+          client_email?: string | null;
           created_by: string;
           starts_on?: string | null;
           ends_on?: string | null;
@@ -68,12 +82,46 @@ export type Database = {
           description?: string | null;
           status?: string;
           location?: string | null;
+          client_first_name?: string | null;
+          client_last_name?: string | null;
+          client_address?: string | null;
+          client_city?: string | null;
+          client_postal_code?: string | null;
+          client_phone?: string | null;
+          client_email?: string | null;
           created_by?: string;
           starts_on?: string | null;
           ends_on?: string | null;
           metadata?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      project_status_events: {
+        Row: {
+          id: string;
+          project_id: string;
+          old_status: string | null;
+          new_status: string;
+          changed_at: string;
+          changed_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          old_status?: string | null;
+          new_status: string;
+          changed_at?: string;
+          changed_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          old_status?: string | null;
+          new_status?: string;
+          changed_at?: string;
+          changed_by?: string | null;
         };
         Relationships: [];
       };

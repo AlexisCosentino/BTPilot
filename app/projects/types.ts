@@ -1,6 +1,14 @@
+export type ProjectStatus =
+  | "draft"
+  | "planned"
+  | "in_progress"
+  | "on_hold"
+  | "completed"
+  | "canceled";
+
 export type ProjectSummary = {
   id: string;
   name: string;
-  status: string;
+  status: ProjectStatus;
   created_at: string;
 };

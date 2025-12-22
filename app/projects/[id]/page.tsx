@@ -6,12 +6,14 @@ import { useParams, useRouter } from "next/navigation";
 import { Composer } from "./components/Composer";
 import { DeleteProjectCard } from "./components/DeleteProjectCard";
 import { EntryList } from "./components/EntryList";
-import { ProjectHeader } from "./components/ProjectHeader";
+import { ProjectEditPanel } from "./components/ProjectEditPanel";
+import { ProjectSummaryCard } from "./components/ProjectSummaryCard";
 import { blobToDataUrl } from "./helpers/file";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
 import { IMAGE_SIZE_LIMIT_BYTES, useImageProcessor } from "./hooks/useImageProcessor";
 import { useEntries } from "./hooks/useEntries";
 import { useProject } from "./hooks/useProject";
+import { deleteProject } from "./services/projectApi";
 import type { Entry, EntrySubtype } from "./types";
 
 export default function ProjectDetailPage() {
@@ -22,8 +24,21 @@ export default function ProjectDetailPage() {
 
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const { project, initialEntries, loading, error } = useProject(id);
+  const {
+    project,
+    initialEntries,
+    statusEvents,
+    loading,
+    error,
+    clientError,
+    statusError,
+    savingClient,
+    savingStatus,
+    saveClientInfo,
+    changeStatus
+  } = useProject(id);
   const {
     sortedEntries,
     composerError,
@@ -115,7 +130,7 @@ export default function ProjectDetailPage() {
     setIsDeletingProject(true);
 
     try {
-      const response = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+      const response = await deleteProject(id);
       const body = (await response.json().catch(() => ({}))) as { error?: string };
 
       if (!response.ok) {
@@ -146,7 +161,7 @@ export default function ProjectDetailPage() {
 
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-4 sm:gap-6">
-      <ProjectHeader project={project} />
+      <ProjectSummaryCard project={project} onEdit={() => setIsEditing(true)} />
 
       {loading ? (
         <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -163,6 +178,19 @@ export default function ProjectDetailPage() {
         </div>
       ) : (
         <>
+          {project && isEditing ? (
+            <ProjectEditPanel
+              project={project}
+              savingClient={savingClient}
+              savingStatus={savingStatus}
+              clientError={clientError}
+              statusError={statusError}
+              onSaveClient={saveClientInfo}
+              onChangeStatus={changeStatus}
+              onClose={() => setIsEditing(false)}
+            />
+          ) : null}
+
           <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
             {entryActionError ? (
               <div className="border-b border-warning/30 bg-warning/5 px-4 py-3 text-sm font-semibold text-warning sm:px-5">
@@ -172,6 +200,7 @@ export default function ProjectDetailPage() {
             <div className="px-4 py-4 sm:px-5">
               <EntryList
                 entries={sortedEntries}
+                statusEvents={statusEvents}
                 editingEntryId={editingEntryId}
                 editingValue={editingValue}
                 editingSubtype={editingSubtype}

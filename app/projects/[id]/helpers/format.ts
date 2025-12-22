@@ -4,17 +4,8 @@ const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   minute: "2-digit"
 });
 
-export const statusLabels: Record<string, string> = {
-  draft: "Brouillon",
-  planned: "Planifié",
-  in_progress: "Chantier en cours",
-  on_hold: "En pause",
-  completed: "Terminé",
-  canceled: "Annulé"
-};
-
 export const entrySubtypeLabels: Record<"task" | "client_change", string> = {
-  task: "Tâche",
+  task: "Tache",
   client_change: "Demande client"
 };
 

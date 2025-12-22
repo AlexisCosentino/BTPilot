@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { formatDate, statusLabels } from "../helpers/format";
+import { getProjectStatusTone } from "../../helpers/status";
+import { formatDate } from "../helpers/format";
 import type { Project } from "../types";
 
 type ProjectHeaderProps = {
@@ -21,13 +22,18 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold leading-tight text-text-main">{project.name}</h1>
-            <p className="mt-1 text-sm text-text-muted">
-              Créé le {formatDate(project.created_at)}
-            </p>
+            <p className="mt-1 text-sm text-text-muted">Cree le {formatDate(project.created_at)}</p>
           </div>
-          <span className="inline-flex items-center rounded-full bg-brand px-3 py-1 text-xs font-semibold uppercase text-white">
-            {statusLabels[project.status] ?? project.status.replace("_", " ")}
-          </span>
+          {(() => {
+            const tone = getProjectStatusTone(project.status);
+            return (
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase ${tone.tone}`}
+              >
+                {tone.label}
+              </span>
+            );
+          })()}
         </div>
       ) : (
         <div className="mt-3">
@@ -38,7 +44,7 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
         <p className="mt-2 text-sm text-text-main">{project.description}</p>
       ) : (
         <p className="mt-2 text-sm text-text-muted">
-          Notes de chantier, photos et mémos vocaux regroupés pour l'équipe.
+          Notes de chantier, photos et memos vocaux regroupes pour l'equipe.
         </p>
       )}
     </header>

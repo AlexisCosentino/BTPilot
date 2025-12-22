@@ -25,9 +25,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { name, description } = (await request.json().catch(() => ({}))) as {
+  const {
+    name,
+    description,
+    client_first_name,
+    client_last_name,
+    client_address,
+    client_city,
+    client_postal_code,
+    client_phone,
+    client_email
+  } = (await request.json().catch(() => ({}))) as {
     name?: string;
     description?: string | null;
+    client_first_name?: string | null;
+    client_last_name?: string | null;
+    client_address?: string | null;
+    client_city?: string | null;
+    client_postal_code?: string | null;
+    client_phone?: string | null;
+    client_email?: string | null;
   };
 
   if (!name?.trim()) {
@@ -53,7 +70,14 @@ export async function POST(request: Request) {
       name: name.trim(),
       description: description?.trim() || null,
       status: "draft",
-      created_by: userId
+      created_by: userId,
+      client_first_name: client_first_name?.trim() || null,
+      client_last_name: client_last_name?.trim() || null,
+      client_address: client_address?.trim() || null,
+      client_city: client_city?.trim() || null,
+      client_postal_code: client_postal_code?.trim() || null,
+      client_phone: client_phone?.trim() || null,
+      client_email: client_email?.trim() || null
     })
     .select("id")
     .single();
