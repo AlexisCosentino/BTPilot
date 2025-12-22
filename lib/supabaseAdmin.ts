@@ -120,6 +120,10 @@ export type Database = {
           created_by: string;
           created_at: string;
           updated_at: string;
+          entry_subtype: "task" | "client_change" | null;
+          is_active: boolean;
+          parent_entry_id: string | null;
+          superseded_at: string | null;
         };
         Insert: {
           id?: string;
@@ -133,6 +137,10 @@ export type Database = {
           created_by: string;
           created_at?: string;
           updated_at?: string;
+          entry_subtype?: "task" | "client_change" | null;
+          is_active?: boolean;
+          parent_entry_id?: string | null;
+          superseded_at?: string | null;
         };
         Update: {
           id?: string;
@@ -146,6 +154,10 @@ export type Database = {
           created_by?: string;
           created_at?: string;
           updated_at?: string;
+          entry_subtype?: "task" | "client_change" | null;
+          is_active?: boolean;
+          parent_entry_id?: string | null;
+          superseded_at?: string | null;
         };
         Relationships: [];
       };

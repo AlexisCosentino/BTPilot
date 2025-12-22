@@ -3,26 +3,15 @@ import "server-only";
 import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 
-type ProjectCardProps = {
-  id: string;
-  name: string;
-  status: string;
-  createdAt: string | Date;
-};
+import { formatProjectDate } from "../app/projects/helpers/date";
+import { getProjectStatusTone } from "../app/projects/helpers/status";
+import type { ProjectSummary } from "../app/projects/types";
 
-const statusTone: Record<string, { label: string; tone: string }> = {
-  draft: { label: "Brouillon", tone: "bg-gray-100 text-text-main" },
-  planned: { label: "Planifié", tone: "bg-info/10 text-info" },
-  in_progress: { label: "Chantier en cours", tone: "bg-accent/15 text-accent" },
-  on_hold: { label: "En pause", tone: "bg-warning/10 text-warning" },
-  completed: { label: "Terminé", tone: "bg-success/15 text-success" },
-  canceled: { label: "Annulé", tone: "bg-warning/10 text-warning" }
-};
+type ProjectCardProps = ProjectSummary & { createdAt?: string | Date };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" });
-
-export function ProjectCard({ id, name, status, createdAt }: ProjectCardProps) {
-  const tone = statusTone[status] ?? { label: status, tone: "bg-gray-100 text-text-main" };
+export function ProjectCard({ id, name, status, created_at, createdAt }: ProjectCardProps) {
+  const tone = getProjectStatusTone(status);
+  const createdValue = createdAt ?? created_at;
 
   return (
     <Link
@@ -42,7 +31,7 @@ export function ProjectCard({ id, name, status, createdAt }: ProjectCardProps) {
           </span>
         </div>
         <p className="text-xs text-text-muted">
-          Créé le {dateFormatter.format(new Date(createdAt))}
+          CrǸǸ le {formatProjectDate(createdValue)}
         </p>
       </div>
     </Link>

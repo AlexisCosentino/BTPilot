@@ -1,90 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, useAuth } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { HardHat, LogIn, Plus } from "lucide-react";
 
-type Project = {
-  id: string;
-  name: string;
-  status: string;
-  created_at: string;
-};
-
-const statusTone: Record<string, { label: string; tone: string }> = {
-  draft: { label: "Brouillon", tone: "bg-gray-100 text-text-main" },
-  planned: { label: "Planifié", tone: "bg-info/10 text-info" },
-  in_progress: { label: "Chantier en cours", tone: "bg-accent/15 text-accent" },
-  on_hold: { label: "En pause", tone: "bg-warning/10 text-warning" },
-  completed: { label: "Terminé", tone: "bg-success/15 text-success" },
-  canceled: { label: "Annulé", tone: "bg-warning/10 text-warning" }
-};
-
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" });
+import { formatProjectDate } from "./projects/helpers/date";
+import { getProjectStatusTone } from "./projects/helpers/status";
+import { useProjects } from "./projects/hooks/useProjects";
 
 export default function DashboardPage() {
-  const { isLoaded, isSignedIn } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    if (!isLoaded) return;
-
-    if (!isSignedIn) {
-      if (active) {
-        setProjects([]);
-        setError("Please sign in to view your projects.");
-        setLoading(false);
-      }
-      return;
-    }
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch("/api/projects", { cache: "no-store" });
-
-        if (!active) return;
-
-        if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as { error?: string };
-          const message =
-            response.status === 401
-              ? "Connectez-vous pour voir vos chantiers."
-              : body.error || "Impossible de charger les chantiers.";
-
-          setProjects([]);
-          setError(message);
-          setLoading(false);
-          return;
-        }
-
-        const body = (await response.json().catch(() => ({}))) as {
-          projects?: Project[];
-        };
-
-        setProjects(Array.isArray(body.projects) ? body.projects : []);
-        setLoading(false);
-      } catch (error) {
-        console.error("[dashboard] Impossible de charger les chantiers", error);
-        if (!active) return;
-        setProjects([]);
-        setError("Chargement des chantiers impossible.");
-        setLoading(false);
-      }
-    };
-
-    load();
-    return () => {
-      active = false;
-    };
-  }, [isLoaded, isSignedIn]);
+  const { projects, loading, error } = useProjects();
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6">
@@ -94,12 +19,8 @@ export default function DashboardPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               Vue chantier
             </p>
-            <h1 className="text-3xl font-bold leading-tight text-text-main">
-              Chantiers
-            </h1>
-            <p className="text-sm text-text-muted">
-              Suivi rapide des chantiers et actions terrain.
-            </p>
+            <h1 className="text-3xl font-bold leading-tight text-text-main">Chantiers</h1>
+            <p className="text-sm text-text-muted">Suivi rapide des chantiers et actions terrain.</p>
           </div>
           <div className="flex items-center gap-2">
             <SignedIn>
@@ -131,7 +52,7 @@ export default function DashboardPage() {
         <div className="rounded-lg border border-warning/30 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-warning">{error}</p>
           <p className="mt-1 text-sm text-text-muted">
-            Rafraîchissez la page et vérifiez votre connexion.
+            Rafraichissez la page et vérifiez votre connexion.
           </p>
         </div>
       ) : !projects.length ? (
@@ -141,7 +62,7 @@ export default function DashboardPage() {
           </div>
           <h2 className="mt-3 text-lg font-semibold text-text-main">Aucun chantier</h2>
           <p className="mt-2 text-sm text-text-muted">
-            Lancez votre premier chantier pour suivre l&apos;avancement et les échanges terrain.
+            Lancez votre premier chantier pour suivre l&apos;avancement et les Ǹchanges terrain.
           </p>
           <div className="mt-4">
             <Link
@@ -155,10 +76,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {projects.map((project) => {
-            const status = statusTone[project.status] ?? {
-              label: project.status,
-              tone: "bg-gray-100 text-text-main"
-            };
+            const status = getProjectStatusTone(project.status);
 
             return (
               <Link
@@ -170,7 +88,7 @@ export default function DashboardPage() {
                   <div>
                     <h3 className="text-base font-semibold text-text-main">{project.name}</h3>
                     <p className="mt-1 text-xs text-text-muted">
-                      Créé le {dateFormatter.format(new Date(project.created_at))}
+                      Créé le {formatProjectDate(project.created_at)}
                     </p>
                   </div>
                   <span

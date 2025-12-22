@@ -1,10 +1,12 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { buildCompanyLabel, getAuthContext, getPrimaryEmail, loadClerkUser } from "./clerk.service";
+import { createCompany, getOwnedCompany } from "./company.service";
+import { getExistingMembership, upsertMembership } from "./membership.service";
+import { createSupabaseUser, listSupabaseUsers } from "./supabaseAuth.service";
 
 export async function POST() {
-  const { userId, sessionId } = await auth();
+  const { userId, sessionId } = await getAuthContext();
 
   if (!userId) {
     console.warn("[auth/sync] Unauthorized request", { sessionId });
@@ -13,12 +15,8 @@ export async function POST() {
 
   console.log("[auth/sync] Starting sync", { userId });
 
-  const user = await currentUser().catch((error) => {
-    console.error("[auth/sync] Failed to load Clerk user", { userId, error });
-    return null;
-  });
-
-  const primaryEmail = user?.primaryEmailAddress?.emailAddress;
+  const user = await loadClerkUser(userId);
+  const primaryEmail = getPrimaryEmail(user);
 
   if (!primaryEmail) {
     console.error("[auth/sync] Missing primary email for Clerk user", { userId });
@@ -28,8 +26,7 @@ export async function POST() {
     );
   }
 
-  const { data: supabaseUsersPage, error: supabaseLookupError } =
-    await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const { data: supabaseUsersPage, error: supabaseLookupError } = await listSupabaseUsers(1, 200);
 
   if (supabaseLookupError) {
     console.error("[auth/sync] Supabase user lookup failed", {
@@ -48,12 +45,10 @@ export async function POST() {
     ) ?? null;
 
   if (!supabaseUser) {
-    const { data: createdSupabaseUser, error: createSupabaseUserError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: primaryEmail,
-        email_confirm: true,
-        user_metadata: { clerk_user_id: userId }
-      });
+    const { data: createdSupabaseUser, error: createSupabaseUserError } = await createSupabaseUser(
+      primaryEmail,
+      userId
+    );
 
     if (createSupabaseUserError || !createdSupabaseUser?.user) {
       console.error("[auth/sync] Supabase user creation failed", {
@@ -70,16 +65,17 @@ export async function POST() {
     console.log("[auth/sync] Created Supabase auth user", { userId, supabaseUserId: supabaseUser.id });
   }
 
-  const supabaseUserId = supabaseUser.id;
-  const companyLabel =
-    user?.fullName || user?.username || user?.primaryEmailAddress?.emailAddress || "New Company";
+  if (!supabaseUser) {
+    return NextResponse.json(
+      { success: false, error: "Failed creating Supabase user" },
+      { status: 500 }
+    );
+  }
 
-  const { data: existingMembership, error: membershipError } = await supabaseAdmin
-    .from("company_members")
-    .select("company_id, role, supabase_user_id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .maybeSingle();
+  const supabaseUserId = supabaseUser.id;
+  const companyLabel = buildCompanyLabel(user);
+
+  const { data: existingMembership, error: membershipError } = await getExistingMembership(userId);
 
   if (membershipError) {
     console.error("[auth/sync] Membership check failed", { userId, error: membershipError });
@@ -92,12 +88,7 @@ export async function POST() {
   let companyId = existingMembership?.company_id;
 
   if (!companyId) {
-    const { data: ownedCompany, error: ownedCompanyError } = await supabaseAdmin
-      .from("companies")
-      .select("id")
-      .eq("owner_user_id", userId)
-      .order("created_at", { ascending: true })
-      .maybeSingle();
+    const { data: ownedCompany, error: ownedCompanyError } = await getOwnedCompany(userId);
 
     if (ownedCompanyError) {
       console.error("[auth/sync] Owned company lookup failed", { userId, error: ownedCompanyError });
@@ -110,14 +101,10 @@ export async function POST() {
     companyId = ownedCompany?.id;
 
     if (!companyId) {
-      const { data: newCompany, error: createCompanyError } = await supabaseAdmin
-        .from("companies")
-        .insert({
-          name: `${companyLabel}'s Company`,
-          owner_user_id: userId
-        })
-        .select("id")
-        .single();
+      const { data: newCompany, error: createCompanyError } = await createCompany(
+        `${companyLabel}'s Company`,
+        userId
+      );
 
       if (createCompanyError || !newCompany) {
         console.error("[auth/sync] Company creation failed", { userId, error: createCompanyError });
@@ -134,17 +121,12 @@ export async function POST() {
     }
   }
 
-  const { error: membershipUpsertError } = await supabaseAdmin
-    .from("company_members")
-    .upsert(
-      {
-        company_id: companyId,
-        user_id: userId,
-        supabase_user_id: supabaseUserId,
-        role: existingMembership?.role ?? "owner"
-      },
-      { onConflict: "company_id,user_id" }
-    );
+  const { error: membershipUpsertError } = await upsertMembership({
+    companyId,
+    userId,
+    supabaseUserId,
+    role: existingMembership?.role ?? "owner"
+  });
 
   if (membershipUpsertError) {
     console.error("[auth/sync] Membership upsert failed", { userId, error: membershipUpsertError });
