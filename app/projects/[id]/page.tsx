@@ -173,7 +173,10 @@ export default function ProjectDetailPage() {
     <section className="mx-auto flex max-w-4xl flex-col gap-4 sm:gap-6">
       <ProjectSummaryCard project={project} onEdit={() => setIsEditing(true)} />
       <SummariesCard
+        project={project}
+        statusEvents={statusEvents}
         summaries={summaries}
+        projectId={id}
         loading={summaries.loading}
         isGenerating={isGeneratingSummary}
         error={summaries.error}

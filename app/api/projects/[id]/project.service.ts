@@ -16,6 +16,10 @@ export type ProjectResponse = {
   client_email: string | null;
 };
 
+export type ProjectWithMetadata = ProjectResponse & {
+  metadata: Record<string, unknown> | null;
+};
+
 export type StatusEventResponse = {
   id: string;
   project_id: string;
@@ -80,6 +84,7 @@ const legacySelect =
   "id, entry_type, text_content, photo_url, audio_url, metadata, created_by, created_at";
 const projectSelect =
   "id, name, status, description, created_at, client_first_name, client_last_name, client_address, client_city, client_postal_code, client_phone, client_email";
+const projectWithMetadataSelect = `${projectSelect}, metadata`;
 const statusEventSelect =
   "id, project_id, old_status, new_status, changed_at, changed_by";
 export const PROJECT_STATUS_VALUES = [
@@ -155,6 +160,29 @@ export async function getProjectForCompany(
   }
 
   return data ?? null;
+}
+
+export async function getProjectWithMetadataForCompany(
+  projectId: string,
+  companyId: string
+): Promise<ProjectWithMetadata | null> {
+  const { data, error } = await supabaseAdmin
+    .from("projects")
+    .select(projectWithMetadataSelect)
+    .eq("id", projectId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[api/projects/:id] Failed to fetch project with metadata", {
+      projectId,
+      companyId,
+      error
+    });
+    return null;
+  }
+
+  return data as ProjectWithMetadata | null;
 }
 
 export async function getProjectEntries(

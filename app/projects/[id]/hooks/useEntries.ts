@@ -254,8 +254,14 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
         throw new Error(body.error || "Transcription indisponible.");
       }
 
+      if (!body.entry) {
+        return;
+      }
+
       setEntries((prev) =>
-        prev.map((item) => (item.id === entryId ? { ...item, metadata: body.entry.metadata } : item))
+        prev.map((item) =>
+          item.id === entryId ? { ...item, metadata: body.entry!.metadata } : item
+        )
       );
     } catch (err) {
       setEntryActionError("Transcription indisponible.");

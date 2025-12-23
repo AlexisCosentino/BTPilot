@@ -19,5 +19,9 @@ export const projectStatusTone: Record<ProjectStatus, { label: string; tone: str
 };
 
 export function getProjectStatusTone(status: ProjectStatus | string) {
-  return projectStatusTone[status] ?? { label: status, tone: "bg-gray-100 text-text-main" };
+  if (status in projectStatusTone) {
+    return projectStatusTone[status as ProjectStatus];
+  }
+
+  return { label: status, tone: "bg-gray-100 text-text-main" };
 }

@@ -1,4 +1,4 @@
-import type { ProjectStatus } from "../types";
+export type ProjectStatus = import("../types").ProjectStatus;
 
 export type EntryType = "text" | "photo" | "audio";
 export type EntrySubtype = "task" | "client_change" | null;
