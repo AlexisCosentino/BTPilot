@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { normalizeEntryMetadata, type EntryMetadata } from "./entries/entries.service";
 
 export type ProjectResponse = {
   id: string;
@@ -30,6 +31,7 @@ export type EntryResponse = {
   text_content: string | null;
   photo_url: string | null;
   audio_url: string | null;
+  metadata: EntryMetadata | null;
   created_by: string;
   created_at: string;
   entry_subtype: "task" | "client_change" | null;
@@ -44,6 +46,7 @@ type EntryRow = {
   text_content: string | null;
   photo_url: string | null;
   audio_url: string | null;
+  metadata: EntryMetadata | null;
   created_by: string;
   created_at: string;
   entry_subtype: "task" | "client_change" | null;
@@ -72,7 +75,7 @@ type LegacyEntryMetadata = {
 
 const ALLOWED_ENTRY_SUBTYPES = ["task", "client_change"];
 const columnSelect =
-  "id, entry_type, text_content, photo_url, audio_url, created_by, created_at, entry_subtype, is_active, parent_entry_id, superseded_at";
+  "id, entry_type, text_content, photo_url, audio_url, metadata, created_by, created_at, entry_subtype, is_active, parent_entry_id, superseded_at";
 const legacySelect =
   "id, entry_type, text_content, photo_url, audio_url, metadata, created_by, created_at";
 const projectSelect =
@@ -104,6 +107,7 @@ function mapEntryRowToResponse(entry: EntryRow): EntryResponse {
     text_content: entry.text_content,
     photo_url: entry.photo_url,
     audio_url: entry.audio_url,
+    metadata: entry.metadata ? normalizeEntryMetadata(entry.metadata) : null,
     created_by: entry.created_by,
     created_at: entry.created_at,
     entry_subtype,
@@ -124,6 +128,7 @@ function mapLegacyEntryRowToResponse(entry: LegacyEntryRow): EntryResponse {
     text_content: entry.text_content,
     photo_url: entry.photo_url,
     audio_url: entry.audio_url,
+    metadata: entry.metadata ? normalizeEntryMetadata(entry.metadata) : null,
     created_by: entry.created_by,
     created_at: entry.created_at,
     entry_subtype,

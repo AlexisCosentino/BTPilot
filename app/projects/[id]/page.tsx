@@ -8,11 +8,13 @@ import { DeleteProjectCard } from "./components/DeleteProjectCard";
 import { EntryList } from "./components/EntryList";
 import { ProjectEditPanel } from "./components/ProjectEditPanel";
 import { ProjectSummaryCard } from "./components/ProjectSummaryCard";
+import { SummariesCard } from "./components/SummariesCard";
 import { blobToDataUrl } from "./helpers/file";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
 import { IMAGE_SIZE_LIMIT_BYTES, useImageProcessor } from "./hooks/useImageProcessor";
 import { useEntries } from "./hooks/useEntries";
 import { useProject } from "./hooks/useProject";
+import { useSummaries } from "./hooks/useSummaries";
 import { deleteProject } from "./services/projectApi";
 import type { Entry, EntrySubtype } from "./types";
 
@@ -40,6 +42,12 @@ export default function ProjectDetailPage() {
     changeStatus
   } = useProject(id);
   const {
+    summaries,
+    isGenerating: isGeneratingSummary,
+    generateSummaries,
+    reloadSummaries
+  } = useSummaries(id);
+  const {
     sortedEntries,
     composerError,
     setComposerError,
@@ -57,11 +65,13 @@ export default function ProjectDetailPage() {
     setEditingSubtype,
     savingEntryId,
     deletingEntryId,
+    transcribingEntryId,
     createEntry,
     startEditingEntry,
     cancelEditingEntry,
     saveEditingEntry,
-    handleDeleteEntry
+    handleDeleteEntry,
+    retryTranscription
   } = useEntries(id, initialEntries);
   const { resizeAndCompressImage } = useImageProcessor();
   const { isRecording, startRecording, stopRecording } = useAudioRecorder();
@@ -162,6 +172,16 @@ export default function ProjectDetailPage() {
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-4 sm:gap-6">
       <ProjectSummaryCard project={project} onEdit={() => setIsEditing(true)} />
+      <SummariesCard
+        summaries={summaries}
+        loading={summaries.loading}
+        isGenerating={isGeneratingSummary}
+        error={summaries.error}
+        onGenerate={async () => {
+          await generateSummaries();
+          await reloadSummaries();
+        }}
+      />
 
       {loading ? (
         <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -206,12 +226,14 @@ export default function ProjectDetailPage() {
                 editingSubtype={editingSubtype}
                 deletingEntryId={deletingEntryId}
                 savingEntryId={savingEntryId}
+                transcribingEntryId={transcribingEntryId}
                 onEditChange={setEditingValue}
                 onEditSubtypeChange={setEditingSubtype}
                 onEditStart={startEditingEntry}
                 onEditCancel={cancelEditingEntry}
                 onEditSave={saveEditingEntry}
                 onDelete={handleDeleteEntry}
+                onRetryTranscription={retryTranscription}
               />
             </div>
 

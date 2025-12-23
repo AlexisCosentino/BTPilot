@@ -3,6 +3,24 @@ import type { ProjectStatus } from "../types";
 export type EntryType = "text" | "photo" | "audio";
 export type EntrySubtype = "task" | "client_change" | null;
 
+export type EntryMetadata = {
+  transcript_text?: string | null;
+  transcript_model?: string | null;
+  transcript_language?: string | null;
+  transcript_created_at?: string | null;
+  transcript_error?: string | null;
+} & Record<string, unknown>;
+
+export type ProjectSummaries = {
+  ai_summary_artisan: string | null;
+  ai_summary_client: string | null;
+  ai_summary_artisan_short?: string | null;
+  ai_summary_artisan_detail?: string | null;
+  ai_summary_client_short?: string | null;
+  ai_summary_client_detail?: string | null;
+  ai_summary_updated_at: string | null;
+};
+
 export type ClientInfo = {
   client_first_name: string | null;
   client_last_name: string | null;
@@ -40,6 +58,7 @@ export type Entry = {
   text_content: string | null;
   photo_url: string | null;
   audio_url: string | null;
+  metadata?: EntryMetadata | null;
   created_by: string;
   created_at: string;
   entry_subtype?: EntrySubtype;

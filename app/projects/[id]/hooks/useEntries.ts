@@ -19,6 +19,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
   const [editingSubtype, setEditingSubtype] = useState<EntrySubtype>(null);
   const [savingEntryId, setSavingEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [transcribingEntryId, setTranscribingEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     setEntries(initialEntries);
@@ -31,6 +32,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
     setEditingSubtype(null);
     setSavingEntryId(null);
     setDeletingEntryId(null);
+    setTranscribingEntryId(null);
     setComposerError(null);
     setTextValue("");
     setTextSubtype(null);
@@ -72,6 +74,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
       audio_url: type === "audio" ? optimisticContent : null,
       created_by: "vous",
       created_at: new Date().toISOString(),
+      metadata: null,
       entry_subtype: type === "text" ? payload.entrySubtype : null,
       is_active: true,
       parent_entry_id: null,
@@ -229,6 +232,38 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
     }
   };
 
+  const retryTranscription = async (entryId: string) => {
+    if (!projectId) return;
+
+    const current = entries.find((item) => item.id === entryId);
+    if (!current || current.entry_type !== "audio") return;
+
+    setEntryActionError(null);
+    setTranscribingEntryId(entryId);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/entries/transcribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryId })
+      });
+
+      const body = (await response.json().catch(() => ({}))) as { entry?: Entry; error?: string };
+
+      if (!response.ok || !body.entry) {
+        throw new Error(body.error || "Transcription indisponible.");
+      }
+
+      setEntries((prev) =>
+        prev.map((item) => (item.id === entryId ? { ...item, metadata: body.entry.metadata } : item))
+      );
+    } catch (err) {
+      setEntryActionError("Transcription indisponible.");
+    } finally {
+      setTranscribingEntryId(null);
+    }
+  };
+
   return {
     entries,
     sortedEntries,
@@ -248,10 +283,12 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
     setEditingSubtype,
     savingEntryId,
     deletingEntryId,
+    transcribingEntryId,
     createEntry,
     startEditingEntry,
     cancelEditingEntry,
     saveEditingEntry,
-    handleDeleteEntry
+    handleDeleteEntry,
+    retryTranscription
   };
 }

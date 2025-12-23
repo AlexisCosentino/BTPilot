@@ -30,3 +30,11 @@ export function updateProjectStatus(projectId: string, newStatus: ProjectStatus)
     body: JSON.stringify({ new_status: newStatus })
   });
 }
+
+export function fetchProjectSummaries(projectId: string) {
+  return fetch(`/api/projects/${projectId}/summaries`, { cache: "no-store" });
+}
+
+export function generateProjectSummariesApi(projectId: string) {
+  return fetch(`/api/projects/${projectId}/summaries/generate`, { method: "POST" });
+}

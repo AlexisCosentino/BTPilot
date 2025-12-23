@@ -27,7 +27,15 @@ function EditedBadge({ parentId }: { parentId: string | null | undefined }) {
   );
 }
 
-function EntryContent({ entry }: { entry: Entry }) {
+function EntryContent({
+  entry,
+  isTranscribing,
+  onRetryTranscription
+}: {
+  entry: Entry;
+  isTranscribing: boolean;
+  onRetryTranscription?: (entryId: string) => void;
+}) {
   if (entry.entry_type === "photo" && entry.photo_url) {
     return (
       <img
@@ -39,10 +47,39 @@ function EntryContent({ entry }: { entry: Entry }) {
   }
 
   if (entry.entry_type === "audio" && entry.audio_url) {
+    const transcriptText = entry.metadata?.transcript_text || null;
+    const transcriptError = entry.metadata?.transcript_error || null;
+
     return (
-      <audio controls className="w-full">
-        <source src={entry.audio_url} />
-      </audio>
+      <div className="space-y-3">
+        <audio controls className="w-full">
+          <source src={entry.audio_url} />
+        </audio>
+        {transcriptText ? (
+          <div className="rounded-md border border-gray-200 bg-surface-light px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Transcription
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-text-main">{transcriptText}</p>
+          </div>
+        ) : transcriptError ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-gray-200 bg-surface-light px-3 py-2">
+            <p className="text-sm text-text-muted">
+              Transcription indisponible{transcriptError ? ` : ${transcriptError}` : "."}
+            </p>
+            {onRetryTranscription ? (
+              <button
+                type="button"
+                className="inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-brand shadow-sm transition hover:border-brand/40 hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => onRetryTranscription(entry.id)}
+                disabled={isTranscribing}
+              >
+                {isTranscribing ? "Relance..." : "Relancer"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     );
   }
 
@@ -144,6 +181,7 @@ type EntryItemProps = {
   isSaving: boolean;
   isDeleting: boolean;
   isActionDisabled: boolean;
+  isTranscribing: boolean;
   editingValue: string;
   editingSubtype: EntrySubtype;
   onEditChange: (value: string) => void;
@@ -152,6 +190,7 @@ type EntryItemProps = {
   onEditCancel: () => void;
   onEditSave: (entryId: string) => void;
   onDelete: (entry: Entry) => void;
+  onRetryTranscription: (entryId: string) => void;
 };
 
 function EntryItem({
@@ -160,6 +199,7 @@ function EntryItem({
   isSaving,
   isDeleting,
   isActionDisabled,
+  isTranscribing,
   editingValue,
   editingSubtype,
   onEditChange,
@@ -167,7 +207,8 @@ function EntryItem({
   onEditStart,
   onEditCancel,
   onEditSave,
-  onDelete
+  onDelete,
+  onRetryTranscription
 }: EntryItemProps) {
   return (
     <li className="flex gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
@@ -200,7 +241,11 @@ function EntryItem({
             <EntrySubtypeToggles value={editingSubtype} onChange={onEditSubtypeChange} />
           </div>
         ) : (
-          <EntryContent entry={entry} />
+          <EntryContent
+            entry={entry}
+            isTranscribing={isTranscribing}
+            onRetryTranscription={onRetryTranscription}
+          />
         )}
 
         <EntryActions
@@ -228,12 +273,14 @@ type EntryListProps = {
   editingSubtype: EntrySubtype;
   deletingEntryId: string | null;
   savingEntryId: string | null;
+  transcribingEntryId: string | null;
   onEditChange: (value: string) => void;
   onEditSubtypeChange: (value: EntrySubtype) => void;
   onEditStart: (entry: Entry) => void;
   onEditCancel: () => void;
   onEditSave: (entryId: string) => void;
   onDelete: (entry: Entry) => void;
+  onRetryTranscription: (entryId: string) => void;
 };
 
 export function EntryList({
@@ -244,12 +291,14 @@ export function EntryList({
   editingSubtype,
   deletingEntryId,
   savingEntryId,
+  transcribingEntryId,
   onEditChange,
   onEditSubtypeChange,
   onEditStart,
   onEditCancel,
   onEditSave,
-  onDelete
+  onDelete,
+  onRetryTranscription
 }: EntryListProps) {
   const timeline: TimelineItem[] = useMemo(() => {
     const entryItems: TimelineItem[] = entries.map((entry) => ({
@@ -292,7 +341,9 @@ export function EntryList({
         const isEditing = editingEntryId === entry.id;
         const isSaving = savingEntryId === entry.id;
         const isDeleting = deletingEntryId === entry.id;
-        const isActionDisabled = Boolean(entry.optimistic) || isDeleting || isSaving || isEditing;
+        const isTranscribing = transcribingEntryId === entry.id;
+        const isActionDisabled =
+          Boolean(entry.optimistic) || isDeleting || isSaving || isEditing || isTranscribing;
         return (
           <EntryItem
             key={entry.id}
@@ -301,6 +352,7 @@ export function EntryList({
             isSaving={isSaving}
             isDeleting={isDeleting}
             isActionDisabled={isActionDisabled}
+            isTranscribing={isTranscribing}
             editingValue={editingValue}
             editingSubtype={editingSubtype}
             onEditChange={onEditChange}
@@ -309,6 +361,7 @@ export function EntryList({
             onEditCancel={onEditCancel}
             onEditSave={onEditSave}
             onDelete={onDelete}
+            onRetryTranscription={onRetryTranscription}
           />
         );
       })}

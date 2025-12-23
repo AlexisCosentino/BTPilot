@@ -20,6 +20,7 @@ import {
   type EntryRow
 } from "./entries.service";
 import { AUDIO_BUCKET, ensureBucketExists, PHOTO_BUCKET, uploadFileToStorage } from "./storage.service";
+import { transcribeEntryAudio } from "./transcription.service";
 
 export async function GET(
   _request: Request,
@@ -213,7 +214,17 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ entry: mapEntryRowToResponse(data as EntryRow) }, { status: 201 });
+  let entryRow = data as EntryRow;
+
+  if (entryType === "audio" && entryRow.audio_url) {
+    try {
+      entryRow = await transcribeEntryAudio(entryRow, projectId, companyId);
+    } catch (err) {
+      console.error("[api/projects/:id/entries] Transcription failed", err);
+    }
+  }
+
+  return NextResponse.json({ entry: mapEntryRowToResponse(entryRow) }, { status: 201 });
 }
 
 export async function DELETE(
