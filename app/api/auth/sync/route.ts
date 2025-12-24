@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 
-import { buildCompanyLabel, getAuthContext, getPrimaryEmail, loadClerkUser } from "./clerk.service";
+import {
+  buildCompanyLabel,
+  getAuthContext,
+  getPrimaryEmail,
+  loadClerkUser
+} from "./clerk.service";
 import { createCompany, getOwnedCompany } from "./company.service";
 import { getExistingMembership, upsertMembership } from "./membership.service";
 import { createSupabaseUser, listSupabaseUsers } from "./supabaseAuth.service";
+import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 export async function POST() {
   const { userId, sessionId } = await getAuthContext();
@@ -121,6 +127,34 @@ export async function POST() {
     }
   }
 
+  const { data: existingUserProfile, error: userProfileLookupError } = await supabaseAdmin
+    .from("user_profiles")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (userProfileLookupError) {
+    console.warn("[auth/sync] Failed checking user profile", {
+      userId,
+      error: userProfileLookupError
+    });
+  } else if (!existingUserProfile) {
+    const { error: createUserProfileError } = await supabaseAdmin
+      .from("user_profiles")
+      .insert({
+        user_id: userId,
+        email: primaryEmail
+      });
+
+    if (createUserProfileError) {
+      console.warn("[auth/sync] User profile creation failed", { userId, error: createUserProfileError });
+    } else {
+      console.log("[auth/sync] User profile created", { userId });
+    }
+  } else {
+    console.log("[auth/sync] User profile exists", { userId });
+  }
+
   const { error: membershipUpsertError } = await upsertMembership({
     companyId,
     userId,
@@ -136,7 +170,86 @@ export async function POST() {
     );
   }
 
+  if (!existingMembership) {
+    console.log("[auth/sync] Auto-created membership for owner", {
+      userId,
+      companyId,
+      role: "owner"
+    });
+  }
+
+  const { data: company } = await supabaseAdmin
+    .from("companies")
+    .select("id, name, owner_user_id")
+    .eq("id", companyId)
+    .maybeSingle();
+
+  const { data: company_members, error: companyMembersError } = await supabaseAdmin
+    .from("company_members")
+    .select(
+      `
+        id,
+        company_id,
+        user_id,
+        role,
+        supabase_user_id,
+        created_at,
+        user_profiles:user_profiles!left (
+          email,
+          first_name,
+          last_name
+        )
+      `
+    )
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: true });
+
+  if (companyMembersError) {
+    console.error("[auth/sync] Company members fetch failed", {
+      userId,
+      companyId,
+      error: companyMembersError
+    });
+    return NextResponse.json(
+      { success: false, error: "Failed fetching company members" },
+      { status: 500 }
+    );
+  }
+
+  const company_members_with_profile =
+    company_members?.map((member) => {
+      const profile = (member as {
+        user_profiles?:
+          | {
+              email?: string | null;
+              first_name?: string | null;
+              last_name?: string | null;
+            }
+          | null;
+      }).user_profiles;
+
+      const firstName = profile?.first_name?.trim();
+      const lastName = profile?.last_name?.trim();
+      const hasName = Boolean(firstName || lastName);
+      const email = profile?.email ?? null;
+      const display_name = hasName ? [firstName, lastName].filter(Boolean).join(" ") : email ?? "";
+
+      return {
+        id: member.id,
+        user_id: member.user_id,
+        role: member.role,
+        created_at: member.created_at,
+        supabase_user_id: member.supabase_user_id,
+        email,
+        display_name: display_name || email || "Utilisateur interne"
+      };
+    }) ?? [];
+
   console.log("[auth/sync] Sync complete", { userId, companyId, supabaseUserId });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    company,
+    company_members: company_members_with_profile
+  });
 }

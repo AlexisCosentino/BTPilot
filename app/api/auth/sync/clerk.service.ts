@@ -1,4 +1,6 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import "server-only";
+
+import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 
 export async function getAuthContext() {
   return auth();
@@ -22,4 +24,28 @@ export function buildCompanyLabel(user: Awaited<ReturnType<typeof currentUser>>)
     user?.primaryEmailAddress?.emailAddress ||
     "New Company"
   );
+}
+
+export async function loadClerkUserById(userId: string) {
+  try {
+    const user = await clerkClient.users.getUser(userId);
+
+    if (!user) {
+      console.warn("[auth/sync] Clerk user not found", { userId });
+      return null;
+    }
+
+    const email =
+      user.primaryEmailAddress?.emailAddress || user.emailAddresses?.[0]?.emailAddress || null;
+
+    if (!email) {
+      console.warn("[auth/sync] Clerk user missing email", { userId });
+      return null;
+    }
+
+    return { user, email };
+  } catch (error) {
+    console.error("[auth/sync] Failed to load Clerk user by id", { userId, error });
+    return null;
+  }
 }

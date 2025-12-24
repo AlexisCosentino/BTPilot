@@ -1,0 +1,280 @@
+"use client";
+
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
+import { SignInButton, useAuth } from "@clerk/nextjs";
+import { Loader2, LogIn, Save } from "lucide-react";
+
+import { fetchProfile, updateProfile, type UserProfile } from "./services/profileApi";
+
+type ProfileForm = {
+  email: string;
+  first_name: string;
+  last_name: string;
+  job_title: string;
+  phone: string;
+};
+
+const emptyForm: ProfileForm = {
+  email: "",
+  first_name: "",
+  last_name: "",
+  job_title: "",
+  phone: ""
+};
+
+export default function ProfilePage() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const [form, setForm] = useState<ProfileForm>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const loadProfile = useCallback(
+    async (options?: { silent?: boolean }): Promise<boolean> => {
+      if (!isLoaded) return false;
+      if (!isSignedIn) {
+        setForm(emptyForm);
+        setLoading(false);
+        return false;
+      }
+
+      if (!options?.silent) {
+        setLoading(true);
+        setError(null);
+        setSuccess(null);
+      }
+
+      try {
+        const response = await fetchProfile();
+
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error || "Chargement du profil impossible.");
+        }
+
+        const body = (await response.json().catch(() => ({}))) as { profile?: UserProfile | null };
+        const profile = body.profile;
+
+        setForm({
+          email: profile?.email ?? "",
+          first_name: profile?.first_name ?? "",
+          last_name: profile?.last_name ?? "",
+          job_title: profile?.job_title ?? "",
+          phone: profile?.phone ?? ""
+        });
+        if (options?.silent) {
+          setError(null);
+        }
+        return true;
+      } catch (err) {
+        console.error("[profile] Failed to load profile", err);
+        setForm(emptyForm);
+        setError("Impossible de charger le profil.");
+        return false;
+      } finally {
+        if (!options?.silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [isLoaded, isSignedIn]
+  );
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const handleChange =
+    (field: keyof ProfileForm) => (event: ChangeEvent<HTMLInputElement>) => {
+      setForm((current) => ({ ...current, [field]: event.target.value }));
+    };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await updateProfile({
+        first_name: form.first_name,
+        last_name: form.last_name,
+        job_title: form.job_title,
+        phone: form.phone
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error || "Enregistrement impossible.");
+      }
+
+      const body = (await response.json().catch(() => ({}))) as { profile?: UserProfile | null };
+      const profile = body.profile;
+
+      setForm({
+        email: profile?.email ?? form.email,
+        first_name: profile?.first_name ?? form.first_name,
+        last_name: profile?.last_name ?? form.last_name,
+        job_title: profile?.job_title ?? form.job_title,
+        phone: profile?.phone ?? form.phone
+      });
+      const refreshed = await loadProfile({ silent: true });
+      if (refreshed) {
+        setSuccess("Profil enregistre.");
+      }
+    } catch (err) {
+      console.error("[profile] Failed to save profile", err);
+      setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isLoaded) {
+    return (
+      <section className="mx-auto flex max-w-3xl flex-col gap-4 sm:gap-6">
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-text-muted">Verification de la session...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <section className="mx-auto flex max-w-3xl flex-col gap-4 sm:gap-6">
+        <header className="rounded-lg border border-brand/15 bg-white px-4 py-4 shadow-sm sm:px-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Profil</p>
+          <h1 className="mt-1 text-3xl font-bold leading-tight text-text-main">Connexion requise</h1>
+          <p className="mt-1 text-sm text-text-muted">Connectez-vous pour acceder a votre profil.</p>
+        </header>
+        <SignInButton mode="modal">
+          <button className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+            <LogIn className="h-4 w-4" aria-hidden="true" />
+            <span>Se connecter</span>
+          </button>
+        </SignInButton>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mx-auto flex max-w-3xl flex-col gap-4 sm:gap-6">
+      <header className="rounded-lg border border-brand/15 bg-white px-4 py-4 shadow-sm sm:px-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Profil</p>
+        <h1 className="mt-1 text-3xl font-bold leading-tight text-text-main">Informations personnelles</h1>
+        <p className="mt-1 text-sm text-text-muted">
+          Mettez a jour vos informations personnelles utilisees dans l&apos;application.
+        </p>
+      </header>
+
+      {error ? (
+        <div className="rounded-lg border border-warning/30 bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-warning">{error}</p>
+          <p className="mt-1 text-sm text-text-muted">
+            Reessayez plus tard ou verifiez votre connexion.
+          </p>
+        </div>
+      ) : null}
+
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-text-main" htmlFor="email">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={form.email}
+              readOnly
+              disabled
+              className="mt-1 w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-text-main shadow-sm"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-semibold text-text-main" htmlFor="first-name">
+                Prenom
+              </label>
+              <input
+                id="first-name"
+                type="text"
+                value={form.first_name}
+                onChange={handleChange("first_name")}
+                placeholder="Jean"
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-text-main shadow-sm transition focus:border-brand focus:outline-none focus:ring-0"
+                disabled={loading || saving}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-text-main" htmlFor="last-name">
+                Nom
+              </label>
+              <input
+                id="last-name"
+                type="text"
+                value={form.last_name}
+                onChange={handleChange("last_name")}
+                placeholder="Dupont"
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-text-main shadow-sm transition focus:border-brand focus:outline-none focus:ring-0"
+                disabled={loading || saving}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-text-main" htmlFor="job-title">
+              Poste
+            </label>
+            <input
+              id="job-title"
+              type="text"
+              value={form.job_title}
+              onChange={handleChange("job_title")}
+              placeholder="Chef de chantier"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-text-main shadow-sm transition focus:border-brand focus:outline-none focus:ring-0"
+              disabled={loading || saving}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-text-main" htmlFor="phone">
+              Telephone
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              value={form.phone}
+              onChange={handleChange("phone")}
+              placeholder="+33 6 12 34 56 78"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-text-main shadow-sm transition focus:border-brand focus:outline-none focus:ring-0"
+              disabled={loading || saving}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {success ? (
+            <p className="text-sm font-semibold text-success">{success}</p>
+          ) : (
+            <p className="text-sm text-text-muted">Tous les champs sont optionnels.</p>
+          )}
+          <button
+            type="submit"
+            disabled={saving || loading}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-[#15365a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
+            <span>{saving ? "Enregistrement..." : "Enregistrer"}</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}

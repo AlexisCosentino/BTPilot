@@ -22,6 +22,7 @@ export function AuthSync() {
 
     const controller = new AbortController();
 
+    // Auth sync is idempotent and non-blocking; we log outcomes but do not block the UI flow.
     (async () => {
       try {
         const response = await fetch("/api/auth/sync", {
@@ -32,16 +33,14 @@ export function AuthSync() {
           signal: controller.signal
         });
 
-        if (!response.ok) {
-          console.error("[AuthSync] Sync failed", { status: response.status, userId: user.id });
-          lastSyncedUserId.current = null;
-        } else {
+        if ([200, 204, 409].includes(response.status)) {
           console.log("[AuthSync] Sync completed", { userId: user.id });
+        } else {
+          console.warn("[AuthSync] Sync not successful", { status: response.status, userId: user.id });
         }
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
-        console.error("[AuthSync] Sync request error", { error, userId: user.id });
-        lastSyncedUserId.current = null;
+        console.warn("[AuthSync] Sync request error", { error, userId: user.id });
       }
     })();
 

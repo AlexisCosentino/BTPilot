@@ -155,6 +155,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          email: string;
+          first_name: string | null;
+          last_name: string | null;
+          job_title: string | null;
+          phone: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          email: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          job_title?: string | null;
+          phone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          email?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          job_title?: string | null;
+          phone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       project_entries: {
         Row: {
           id: string;
@@ -206,6 +242,51 @@ export type Database = {
           is_active?: boolean;
           parent_entry_id?: string | null;
           superseded_at?: string | null;
+        };
+        Relationships: [];
+      };
+      company_invites: {
+        Row: {
+          id: string;
+          company_id: string;
+          email: string;
+          role: string;
+          token: string;
+          invited_by: string;
+          status: string;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_user_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          email: string;
+          role?: string;
+          token: string;
+          invited_by: string;
+          status?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          email?: string;
+          role?: string;
+          token?: string;
+          invited_by?: string;
+          status?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
