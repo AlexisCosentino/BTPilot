@@ -1,5 +1,6 @@
-export async function listProjects() {
-  return fetch("/api/projects", { cache: "no-store" });
+export async function listProjects(companyId?: string) {
+  const search = companyId ? `?company_id=${companyId}` : "";
+  return fetch(`/api/projects${search}`, { cache: "no-store" });
 }
 
 export type CreateProjectPayload = {
@@ -14,10 +15,12 @@ export type CreateProjectPayload = {
   client_email?: string | null;
 };
 
-export async function createProject(payload: CreateProjectPayload) {
+export async function createProject(payload: CreateProjectPayload, companyId?: string) {
+  const body = { ...payload, company_id: companyId };
+
   return fetch("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(body)
   });
 }

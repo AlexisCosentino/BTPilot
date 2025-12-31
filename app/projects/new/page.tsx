@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { LogIn, Plus } from "lucide-react";
 
+import { useActiveCompany } from "../../../components/active-company-context";
 import { createProject } from "../services/projectsApi";
 
 type FormValues = {
@@ -23,6 +24,7 @@ type FormValues = {
 export default function NewProjectPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
+  const { activeCompanyId, loading: companiesLoading, error: companiesError } = useActiveCompany();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
@@ -47,7 +49,7 @@ export default function NewProjectPage() {
     setSubmitError(null);
 
     try {
-      const response = await createProject(values);
+      const response = await createProject(values, activeCompanyId || undefined);
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -68,7 +70,7 @@ export default function NewProjectPage() {
     }
   });
 
-  if (!isLoaded) {
+  if (!isLoaded || companiesLoading) {
     return (
       <section className="mx-auto flex max-w-3xl flex-col gap-6">
         <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -92,6 +94,21 @@ export default function NewProjectPage() {
             <span>Se connecter ou creer un compte</span>
           </button>
         </SignInButton>
+      </section>
+    );
+  }
+
+  if (!activeCompanyId || companiesError) {
+    return (
+      <section className="mx-auto flex max-w-3xl flex-col gap-6">
+        <div className="rounded-lg border border-warning/30 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-warning">
+            {companiesError || "Aucune entreprise active selectionnée."}
+          </p>
+          <p className="mt-1 text-sm text-text-muted">
+            Choisissez une entreprise depuis l&apos;en-tête pour créer un chantier.
+          </p>
+        </div>
       </section>
     );
   }

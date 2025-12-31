@@ -3,14 +3,25 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
-async function getCompanyIdForUser(userId: string): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
+const ALLOWED_ROLES = ["owner", "admin", "member"] as const;
+
+async function resolveCompanyIdForUser(
+  userId: string,
+  requestedCompanyId?: string | null
+): Promise<string | null> {
+  const query = supabaseAdmin
     .from("company_members")
     .select("company_id")
     .eq("user_id", userId)
+    .in("role", ALLOWED_ROLES)
     .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  if (requestedCompanyId) {
+    query.eq("company_id", requestedCompanyId);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     throw new Error(`Failed to resolve company: ${error.message}`);
@@ -25,6 +36,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const url = new URL(request.url);
+  const requestedCompanyIdFromUrl = url.searchParams.get("company_id");
+
   const {
     name,
     description,
@@ -34,7 +48,8 @@ export async function POST(request: Request) {
     client_city,
     client_postal_code,
     client_phone,
-    client_email
+    client_email,
+    company_id
   } = (await request.json().catch(() => ({}))) as {
     name?: string;
     description?: string | null;
@@ -45,13 +60,17 @@ export async function POST(request: Request) {
     client_postal_code?: string | null;
     client_phone?: string | null;
     client_email?: string | null;
+    company_id?: string;
   };
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Project name is required" }, { status: 400 });
   }
 
-  const companyId = await getCompanyIdForUser(userId).catch((error) => {
+  const companyId = await resolveCompanyIdForUser(
+    userId,
+    company_id || requestedCompanyIdFromUrl
+  ).catch((error) => {
     console.error("[api/projects] Company lookup failed", { userId, error });
     return null;
   });
@@ -93,14 +112,17 @@ export async function POST(request: Request) {
   return NextResponse.json({ id: data.id }, { status: 201 });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const companyId = await getCompanyIdForUser(userId).catch((error) => {
+  const url = new URL(request.url);
+  const requestedCompanyId = url.searchParams.get("company_id");
+
+  const companyId = await resolveCompanyIdForUser(userId, requestedCompanyId).catch((error) => {
     console.error("[api/projects] Company lookup failed", { userId, error });
     return null;
   });

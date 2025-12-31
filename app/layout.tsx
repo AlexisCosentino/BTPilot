@@ -1,6 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { ActiveCompanyProvider } from "../components/active-company-context";
 import { AuthHeader } from "../components/auth-header";
 import { AuthSync } from "../components/auth-sync";
 import "./globals.css";
@@ -20,11 +21,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="fr">
       <body className="min-h-screen bg-surface-light text-text-main antialiased">
         <ClerkProvider>
-          <AuthSync />
-          <div className="flex min-h-screen flex-col">
-            <AuthHeader />
-            <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8">{children}</main>
-          </div>
+          <ActiveCompanyProvider>
+            <AuthSync />
+            <div className="flex min-h-screen flex-col">
+              <AuthHeader />
+              <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8">{children}</main>
+            </div>
+          </ActiveCompanyProvider>
         </ClerkProvider>
       </body>
     </html>

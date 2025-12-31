@@ -28,7 +28,8 @@ export function buildCompanyLabel(user: Awaited<ReturnType<typeof currentUser>>)
 
 export async function loadClerkUserById(userId: string) {
   try {
-    const user = await clerkClient.users.getUser(userId);
+    const user = await (await clerkClient()).users.getUser(userId);
+
 
     if (!user) {
       console.warn("[auth/sync] Clerk user not found", { userId });

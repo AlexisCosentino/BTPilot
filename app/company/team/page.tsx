@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { Loader2, LogIn, Mail, User, UserPlus, Users, X } from "lucide-react";
 
+import { useActiveCompany } from "../../../components/active-company-context";
 import { createInvite, fetchAuthSync, listInvites, revokeInvite } from "./services/teamApi";
 
 type TeamMember = {
@@ -40,10 +41,12 @@ function formatDate(value: string | Date) {
 
 export default function TeamPage() {
   const { isLoaded, isSignedIn, userId } = useAuth();
+  const { activeCompanyId, loading: companiesLoading, error: companiesError } = useActiveCompany();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -69,20 +72,35 @@ export default function TeamPage() {
       return;
     }
 
+    if (companiesLoading) return;
+
+    if (!activeCompanyId) {
+      setMembers([]);
+      setInvites([]);
+      setLoading(false);
+      setError(companiesError || "Aucune entreprise active selectionnee.");
+      return;
+    }
+
     const load = async () => {
       setLoading(true);
       setError(null);
 
       try {
         let nextMembers: TeamMember[] = [];
+        let nextCompanyName: string | null = null;
 
         try {
-          const authSyncRes = await fetchAuthSync();
+          const authSyncRes = await fetchAuthSync(activeCompanyId);
           if (authSyncRes.ok) {
             const authBody = (await authSyncRes.json().catch(() => ({}))) as {
               company_members?: TeamMember[];
+              company?: { name?: string | null };
             };
             nextMembers = Array.isArray(authBody.company_members) ? authBody.company_members : [];
+            const parsedCompanyName =
+              typeof authBody.company?.name === "string" ? authBody.company.name.trim() : "";
+            nextCompanyName = parsedCompanyName || null;
           } else {
             console.error("[company/team] Auth sync did not succeed", { status: authSyncRes.status });
           }
@@ -90,7 +108,7 @@ export default function TeamPage() {
           console.error("[company/team] Auth sync failed", authError);
         }
 
-        const invitesRes = await listInvites();
+        const invitesRes = await listInvites(activeCompanyId);
 
         if (!active) return;
 
@@ -102,6 +120,7 @@ export default function TeamPage() {
         const invitesBody = (await invitesRes.json().catch(() => ({}))) as { invites?: Invite[] };
 
         setMembers(nextMembers);
+        setCompanyName(nextCompanyName);
         setInvites(Array.isArray(invitesBody.invites) ? invitesBody.invites : []);
         setLoading(false);
       } catch (err) {
@@ -109,6 +128,7 @@ export default function TeamPage() {
         if (!active) return;
         setMembers([]);
         setInvites([]);
+        setCompanyName(null);
         setError("Impossible de charger les donnees de l'equipe.");
         setLoading(false);
       }
@@ -119,7 +139,7 @@ export default function TeamPage() {
     return () => {
       active = false;
     };
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, activeCompanyId, companiesLoading, companiesError]);
 
   const handleCreateInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -133,7 +153,7 @@ export default function TeamPage() {
     setIsInviting(true);
 
     try {
-      const response = await createInvite({ email: inviteEmail.trim(), role: "member" });
+      const response = await createInvite({ email: inviteEmail.trim(), role: "member" }, activeCompanyId);
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -144,7 +164,7 @@ export default function TeamPage() {
 
       setInviteEmail("");
 
-      const invitesRes = await listInvites();
+      const invitesRes = await listInvites(activeCompanyId);
       if (invitesRes.ok) {
         const invitesBody = (await invitesRes.json().catch(() => ({}))) as { invites?: Invite[] };
         setInvites(Array.isArray(invitesBody.invites) ? invitesBody.invites : []);
@@ -162,7 +182,7 @@ export default function TeamPage() {
     setRevokingId(inviteId);
 
     try {
-      const response = await revokeInvite(inviteId);
+      const response = await revokeInvite(inviteId, activeCompanyId);
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -171,7 +191,7 @@ export default function TeamPage() {
         return;
       }
 
-      const invitesRes = await listInvites();
+      const invitesRes = await listInvites(activeCompanyId);
       if (invitesRes.ok) {
         const invitesBody = (await invitesRes.json().catch(() => ({}))) as { invites?: Invite[] };
         setInvites(Array.isArray(invitesBody.invites) ? invitesBody.invites : []);
@@ -222,6 +242,12 @@ export default function TeamPage() {
         <p className="mt-1 text-sm text-text-muted">
           Invitez vos collaborateurs et suivez les membres actifs de l&apos;entreprise.
         </p>
+        {companyName ? (
+          <p className="mt-2 inline-flex items-center gap-2 rounded-md bg-surface-light px-3 py-2 text-sm font-semibold text-text-main">
+            <span className="text-[11px] uppercase tracking-wide text-text-muted">Entreprise</span>
+            <span className="truncate">{companyName}</span>
+          </p>
+        ) : null}
       </header>
 
       {error ? (

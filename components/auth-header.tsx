@@ -10,12 +10,18 @@ import {
   SignOutButton,
   UserButton
 } from "@clerk/nextjs";
+import { CompanySelector } from "./company-selector";
 
 export function AuthHeader() {
   return (
     <header className="border-b border-brand bg-brand px-4 py-3 shadow-sm sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between text-white">
-        <div className="text-sm font-semibold tracking-wide">BTPilot</div>
+      <div className="flex flex-col gap-3 text-white sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="text-sm font-semibold tracking-wide">BTPilot</div>
+          <SignedIn>
+            <CompanySelector />
+          </SignedIn>
+        </div>
         <ClerkLoaded>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <SignedOut>

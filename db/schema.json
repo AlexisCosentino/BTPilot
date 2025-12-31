@@ -48,6 +48,38 @@
     "column_default": "now()"
   },
   {
+    "table_name": "companies",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "udt_name": "bool",
+    "is_nullable": "NO",
+    "column_default": "true"
+  },
+  {
+    "table_name": "companies",
+    "column_name": "archived_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "companies",
+    "column_name": "archived_by",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "table_name": "companies",
+    "column_name": "archived_reason",
+    "data_type": "text",
+    "udt_name": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
     "table_name": "company_invites",
     "column_name": "id",
     "data_type": "uuid",
@@ -196,22 +228,6 @@
     "column_name": "supabase_user_id",
     "data_type": "uuid",
     "udt_name": "uuid",
-    "is_nullable": "YES",
-    "column_default": null
-  },
-  {
-    "table_name": "company_membership",
-    "column_name": "company_id",
-    "data_type": "uuid",
-    "udt_name": "uuid",
-    "is_nullable": "YES",
-    "column_default": null
-  },
-  {
-    "table_name": "company_membership",
-    "column_name": "user_id",
-    "data_type": "text",
-    "udt_name": "text",
     "is_nullable": "YES",
     "column_default": null
   },

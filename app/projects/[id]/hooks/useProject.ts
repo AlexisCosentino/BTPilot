@@ -8,7 +8,7 @@ import {
 } from "../services/projectApi";
 import type { ClientInfo, Entry, Project, ProjectStatus, StatusEvent } from "../types";
 
-export function useProject(projectId: string | null) {
+export function useProject(projectId: string | null, companyId: string | null) {
   const [project, setProject] = useState<Project | null>(null);
   const [initialEntries, setInitialEntries] = useState<Entry[]>([]);
   const [statusEvents, setStatusEvents] = useState<StatusEvent[]>([]);
@@ -39,7 +39,7 @@ export function useProject(projectId: string | null) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchProjectDetail(projectId);
+        const response = await fetchProjectDetail(projectId, companyId);
         const body = (await response.json().catch(() => ({}))) as ProjectDetailResponse;
 
         if (!active) return;
@@ -75,7 +75,7 @@ export function useProject(projectId: string | null) {
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [projectId, companyId]);
 
   const saveClientInfo = useCallback(
     async (payload: Partial<ClientInfo>) => {
@@ -88,7 +88,7 @@ export function useProject(projectId: string | null) {
       setClientError(null);
 
       try {
-        const response = await updateProjectClient(projectId, payload);
+        const response = await updateProjectClient(projectId, payload, companyId);
         const body = (await response.json().catch(() => ({}))) as { project?: Project; error?: string };
 
         if (!response.ok || !body.project) {
@@ -110,7 +110,7 @@ export function useProject(projectId: string | null) {
         setSavingClient(false);
       }
     },
-    [projectId]
+    [projectId, companyId]
   );
 
   const changeStatus = useCallback(
@@ -124,7 +124,7 @@ export function useProject(projectId: string | null) {
       setStatusError(null);
 
       try {
-        const response = await updateProjectStatus(projectId, nextStatus);
+        const response = await updateProjectStatus(projectId, nextStatus, companyId);
         const body = (await response.json().catch(() => ({}))) as { project?: Project; error?: string };
 
         if (!response.ok || !body.project) {
@@ -146,7 +146,7 @@ export function useProject(projectId: string | null) {
         setSavingStatus(false);
       }
     },
-    [projectId]
+    [projectId, companyId]
   );
 
   return {

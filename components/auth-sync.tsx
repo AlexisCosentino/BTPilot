@@ -2,30 +2,34 @@
 
 import { useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useActiveCompany } from "./active-company-context";
 
 /**
  * Silently syncs the signed-in Clerk user into Supabase once per user session.
  */
 export function AuthSync() {
   const { isLoaded, isSignedIn, user } = useUser();
-  const lastSyncedUserId = useRef<string | null>(null);
+  const { activeCompanyId, loading: companyLoading } = useActiveCompany();
+  const lastSyncedKey = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || companyLoading) return;
     if (!isSignedIn || !user) {
-      lastSyncedUserId.current = null;
+      lastSyncedKey.current = null;
       return;
     }
-    if (lastSyncedUserId.current === user.id) return;
+    if (!activeCompanyId) return;
 
-    lastSyncedUserId.current = user.id;
+    const syncKey = `${user.id}:${activeCompanyId}`;
+    if (lastSyncedKey.current === syncKey) return;
+    lastSyncedKey.current = syncKey;
 
     const controller = new AbortController();
 
     // Auth sync is idempotent and non-blocking; we log outcomes but do not block the UI flow.
     (async () => {
       try {
-        const response = await fetch("/api/auth/sync", {
+        const response = await fetch(`/api/auth/sync?company_id=${activeCompanyId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",

@@ -1,25 +1,32 @@
-export async function fetchAuthSync() {
-  return fetch("/api/auth/sync", {
+export async function fetchAuthSync(companyId?: string | null) {
+  return fetch(withCompanyQuery("/api/auth/sync", companyId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     cache: "no-store"
   });
 }
 
-export async function listInvites() {
-  return fetch("/api/company/invites", { cache: "no-store" });
+function withCompanyQuery(path: string, companyId?: string | null) {
+  if (!companyId) return path;
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set("company_id", companyId);
+  return url.pathname + url.search;
 }
 
-export async function createInvite(payload: { email: string; role?: string }) {
-  return fetch("/api/company/invites", {
+export async function listInvites(companyId?: string | null) {
+  return fetch(withCompanyQuery("/api/company/invites", companyId), { cache: "no-store" });
+}
+
+export async function createInvite(payload: { email: string; role?: string }, companyId?: string | null) {
+  return fetch(withCompanyQuery("/api/company/invites", companyId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
 }
 
-export async function revokeInvite(inviteId: string) {
-  return fetch("/api/company/invites/revoke", {
+export async function revokeInvite(inviteId: string, companyId?: string | null) {
+  return fetch(withCompanyQuery("/api/company/invites/revoke", companyId), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ inviteId })

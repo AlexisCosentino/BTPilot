@@ -18,7 +18,7 @@ const emptySummaries: ProjectSummaries = {
   ai_summary_updated_at: null
 };
 
-export function useSummaries(projectId: string | null) {
+export function useSummaries(projectId: string | null, companyId: string | null) {
   const [state, setState] = useState<SummaryState>({
     ...emptySummaries,
     loading: false,
@@ -30,7 +30,7 @@ export function useSummaries(projectId: string | null) {
     if (!projectId) return;
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const response = await fetchProjectSummaries(projectId);
+      const response = await fetchProjectSummaries(projectId, companyId);
       const body = (await response.json().catch(() => ({}))) as ProjectSummaries & { error?: string };
 
       if (!response.ok) {
@@ -45,7 +45,7 @@ export function useSummaries(projectId: string | null) {
         error: "Synthèse indisponible."
       }));
     }
-  }, [projectId]);
+  }, [projectId, companyId]);
 
   const generateSummaries = useCallback(async () => {
     if (!projectId) return false;
@@ -53,7 +53,7 @@ export function useSummaries(projectId: string | null) {
     setState((prev) => ({ ...prev, error: null }));
 
     try {
-      const response = await generateProjectSummariesApi(projectId);
+      const response = await generateProjectSummariesApi(projectId, companyId);
       const body = (await response.json().catch(() => ({}))) as ProjectSummaries & { error?: string };
 
       if (!response.ok) {
@@ -68,7 +68,7 @@ export function useSummaries(projectId: string | null) {
     } finally {
       setIsGenerating(false);
     }
-  }, [projectId]);
+  }, [projectId, companyId]);
 
   useEffect(() => {
     setState({ ...emptySummaries, loading: false, error: null });

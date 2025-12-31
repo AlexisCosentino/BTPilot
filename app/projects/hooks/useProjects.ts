@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/nextjs";
 import { listProjects } from "../services/projectsApi";
 import type { ProjectSummary } from "../types";
 
-export function useProjects() {
+export function useProjects(companyId?: string | null) {
   const { isLoaded, isSignedIn } = useAuth();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,8 +28,15 @@ export function useProjects() {
       setLoading(true);
       setError(null);
 
+      if (!companyId) {
+        setProjects([]);
+        setError("Aucune entreprise active sélectionnée.");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const response = await listProjects();
+        const response = await listProjects(companyId || undefined);
 
         if (!active) return;
 
@@ -65,7 +72,7 @@ export function useProjects() {
     return () => {
       active = false;
     };
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, companyId]);
 
   return { projects, loading, error };
 }

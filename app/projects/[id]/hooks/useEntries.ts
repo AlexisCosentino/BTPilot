@@ -7,7 +7,11 @@ type CreateEntryInput =
   | { type: "photo"; file: File; previewUrl: string }
   | { type: "audio"; file: File; previewUrl: string };
 
-export function useEntries(projectId: string | null, initialEntries: Entry[]) {
+export function useEntries(
+  projectId: string | null,
+  initialEntries: Entry[],
+  companyId: string | null
+) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [entryActionError, setEntryActionError] = useState<string | null>(null);
@@ -20,6 +24,8 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
   const [savingEntryId, setSavingEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [transcribingEntryId, setTranscribingEntryId] = useState<string | null>(null);
+
+  const withCompany = (path: string) => (companyId ? `${path}?company_id=${companyId}` : path);
 
   useEffect(() => {
     setEntries(initialEntries);
@@ -36,7 +42,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
     setComposerError(null);
     setTextValue("");
     setTextSubtype(null);
-  }, [projectId]);
+  }, [projectId, companyId]);
 
   const activeEntries = useMemo(
     () => entries.filter((entry) => entry.is_active !== false),
@@ -89,7 +95,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
       let response: Response;
 
       if (type === "text") {
-        response = await fetch(`/api/projects/${projectId}/entries`, {
+        response = await fetch(withCompany(`/api/projects/${projectId}/entries`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -102,7 +108,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
         const formData = new FormData();
         formData.append("type", type);
         formData.append("file", payload.file);
-        response = await fetch(`/api/projects/${projectId}/entries`, {
+        response = await fetch(withCompany(`/api/projects/${projectId}/entries`), {
           method: "POST",
           body: formData
         });
@@ -168,7 +174,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
     );
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/entries`, {
+      const response = await fetch(withCompany(`/api/projects/${projectId}/entries`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entryId, text: trimmed, entry_subtype: editingSubtype })
@@ -211,7 +217,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
     }
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/entries`, {
+      const response = await fetch(withCompany(`/api/projects/${projectId}/entries`), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entryId: entry.id })
@@ -242,7 +248,7 @@ export function useEntries(projectId: string | null, initialEntries: Entry[]) {
     setTranscribingEntryId(entryId);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/entries/transcribe`, {
+      const response = await fetch(withCompany(`/api/projects/${projectId}/entries/transcribe`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entryId })

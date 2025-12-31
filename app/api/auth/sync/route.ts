@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 
-import {
-  buildCompanyLabel,
-  getAuthContext,
-  getPrimaryEmail,
-  loadClerkUser
-} from "./clerk.service";
-import { createCompany, getOwnedCompany } from "./company.service";
+import { getAuthContext, getPrimaryEmail, loadClerkUser } from "./clerk.service";
 import { getExistingMembership, upsertMembership } from "./membership.service";
 import { createSupabaseUser, listSupabaseUsers } from "./supabaseAuth.service";
-import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { supabaseAdmin, type Database } from "../../../../lib/supabaseAdmin";
 
-export async function POST() {
+type MemberProfile = {
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+} | null;
+
+type CompanyMemberWithProfile = Database["public"]["Tables"]["company_members"]["Row"] & {
+  user_profiles?: MemberProfile;
+};
+
+export async function POST(request: Request) {
   const { userId, sessionId } = await getAuthContext();
 
   if (!userId) {
@@ -79,9 +83,31 @@ export async function POST() {
   }
 
   const supabaseUserId = supabaseUser.id;
-  const companyLabel = buildCompanyLabel(user);
 
-  const { data: existingMembership, error: membershipError } = await getExistingMembership(userId);
+  const url = new URL(request.url);
+  const requestedCompanyId = url.searchParams.get("company_id");
+
+  if (!requestedCompanyId) {
+    console.warn("[auth/sync] Missing company_id", { userId, sessionId });
+    return NextResponse.json(
+      { success: false, error: "company_id is required" },
+      { status: 400 }
+    );
+  }
+
+  console.log("[auth/sync] Membership lookup start", { userId, requestedCompanyId });
+  const { data: requestedMembershipRows, error: membershipError } = await getExistingMembership(
+    userId,
+    requestedCompanyId
+  );
+  const requestedMembership = Array.isArray(requestedMembershipRows)
+    ? requestedMembershipRows[0] ?? null
+    : null;
+  console.log("[auth/sync] Membership lookup end", {
+    userId,
+    requestedCompanyId,
+    requestedCount: requestedMembershipRows?.length ?? 0
+  });
 
   if (membershipError) {
     console.error("[auth/sync] Membership check failed", { userId, error: membershipError });
@@ -91,40 +117,14 @@ export async function POST() {
     );
   }
 
-  let companyId = existingMembership?.company_id;
+  const companyId = requestedMembership?.company_id ?? requestedCompanyId;
 
-  if (!companyId) {
-    const { data: ownedCompany, error: ownedCompanyError } = await getOwnedCompany(userId);
-
-    if (ownedCompanyError) {
-      console.error("[auth/sync] Owned company lookup failed", { userId, error: ownedCompanyError });
-      return NextResponse.json(
-        { success: false, error: "Failed checking existing company" },
-        { status: 500 }
-      );
-    }
-
-    companyId = ownedCompany?.id;
-
-    if (!companyId) {
-      const { data: newCompany, error: createCompanyError } = await createCompany(
-        `${companyLabel}'s Company`,
-        userId
-      );
-
-      if (createCompanyError || !newCompany) {
-        console.error("[auth/sync] Company creation failed", { userId, error: createCompanyError });
-        return NextResponse.json(
-          { success: false, error: "Failed creating company" },
-          { status: 500 }
-        );
-      }
-
-      companyId = newCompany.id;
-      console.log("[auth/sync] Created company", { userId, companyId });
-    } else {
-      console.log("[auth/sync] Reusing owned company", { userId, companyId });
-    }
+  if (!requestedMembership) {
+    console.warn("[auth/sync] No membership for requested company", { userId, companyId });
+    return NextResponse.json(
+      { success: false, error: "No membership for requested company" },
+      { status: 403 }
+    );
   }
 
   const { data: existingUserProfile, error: userProfileLookupError } = await supabaseAdmin
@@ -159,7 +159,7 @@ export async function POST() {
     companyId,
     userId,
     supabaseUserId,
-    role: existingMembership?.role ?? "owner"
+    role: requestedMembership?.role ?? "owner"
   });
 
   if (membershipUpsertError) {
@@ -168,14 +168,6 @@ export async function POST() {
       { success: false, error: "Failed creating membership" },
       { status: 500 }
     );
-  }
-
-  if (!existingMembership) {
-    console.log("[auth/sync] Auto-created membership for owner", {
-      userId,
-      companyId,
-      role: "owner"
-    });
   }
 
   const { data: company } = await supabaseAdmin
@@ -202,7 +194,8 @@ export async function POST() {
       `
     )
     .eq("company_id", companyId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .returns<CompanyMemberWithProfile[]>();
 
   if (companyMembersError) {
     console.error("[auth/sync] Company members fetch failed", {
@@ -218,15 +211,7 @@ export async function POST() {
 
   const company_members_with_profile =
     company_members?.map((member) => {
-      const profile = (member as {
-        user_profiles?:
-          | {
-              email?: string | null;
-              first_name?: string | null;
-              last_name?: string | null;
-            }
-          | null;
-      }).user_profiles;
+      const profile = member.user_profiles;
 
       const firstName = profile?.first_name?.trim();
       const lastName = profile?.last_name?.trim();

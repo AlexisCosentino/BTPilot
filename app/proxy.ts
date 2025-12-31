@@ -5,8 +5,5 @@ export const runtime = "nodejs";
 export default clerkMiddleware();
 
 export const config = {
-  matcher: [
-    "/((?!_next|.*\\..*).*)",
-    "/api/(.*)",
-  ],
+  matcher: ["/((?!_next|.*\\..*).*)", "/api/(.*)"]
 };

@@ -17,12 +17,14 @@ import { useProject } from "./hooks/useProject";
 import { useSummaries } from "./hooks/useSummaries";
 import { deleteProject } from "./services/projectApi";
 import type { Entry, EntrySubtype } from "./types";
+import { useActiveCompany } from "../../../components/active-company-context";
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id =
     typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
+  const { activeCompanyId, loading: companyLoading, error: companyError } = useActiveCompany();
 
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
@@ -40,13 +42,13 @@ export default function ProjectDetailPage() {
     savingStatus,
     saveClientInfo,
     changeStatus
-  } = useProject(id);
+  } = useProject(id, activeCompanyId);
   const {
     summaries,
     isGenerating: isGeneratingSummary,
     generateSummaries,
     reloadSummaries
-  } = useSummaries(id);
+  } = useSummaries(id, activeCompanyId);
   const {
     sortedEntries,
     composerError,
@@ -72,9 +74,34 @@ export default function ProjectDetailPage() {
     saveEditingEntry,
     handleDeleteEntry,
     retryTranscription
-  } = useEntries(id, initialEntries);
+  } = useEntries(id, initialEntries, activeCompanyId);
   const { resizeAndCompressImage } = useImageProcessor();
   const { isRecording, startRecording, stopRecording } = useAudioRecorder();
+
+  if (companyLoading) {
+    return (
+      <section className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6">
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-text-muted">Chargement de l'entreprise...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!activeCompanyId || companyError) {
+    return (
+      <section className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6">
+        <div className="rounded-lg border border-warning/30 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-warning">
+            {companyError || "Aucune entreprise active sélectionnée."}
+          </p>
+          <p className="mt-1 text-sm text-text-muted">
+            Choisissez une entreprise pour ouvrir ce chantier.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   const handleAddText = useCallback(async () => {
     if (!textValue.trim()) {
@@ -140,7 +167,7 @@ export default function ProjectDetailPage() {
     setIsDeletingProject(true);
 
     try {
-      const response = await deleteProject(id);
+      const response = await deleteProject(id, activeCompanyId);
       const body = (await response.json().catch(() => ({}))) as { error?: string };
 
       if (!response.ok) {

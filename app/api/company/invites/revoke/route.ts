@@ -11,7 +11,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const companyId = await getCompanyIdForUser(userId);
+  const url = new URL(request.url);
+  const requestedCompanyId = url.searchParams.get("company_id");
+
+  const companyId = await getCompanyIdForUser(userId, requestedCompanyId);
 
   if (!companyId) {
     return NextResponse.json({ error: "No company found for the current user" }, { status: 400 });

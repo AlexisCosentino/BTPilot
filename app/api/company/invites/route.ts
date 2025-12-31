@@ -2,7 +2,14 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { createInvite, listInvites } from "./invites.service";
-import { getCompanyIdForUser, stripInviteToken, type InviteResponse } from "./helpers";
+import {
+  getCompanyIdForUser,
+  getMembershipForUser,
+  stripInviteToken,
+  type InviteResponse
+} from "./helpers";
+import { sendInviteEmail } from "../../../../lib/email/resend";
+import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -11,10 +18,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const companyId = await getCompanyIdForUser(userId);
+  const url = new URL(request.url);
+  const requestedCompanyId = url.searchParams.get("company_id");
+
+  const companyId = await getCompanyIdForUser(userId, requestedCompanyId);
 
   if (!companyId) {
     return NextResponse.json({ error: "No company found for the current user" }, { status: 400 });
+  }
+
+  const membership = await getMembershipForUser(userId, companyId);
+
+  if (!membership || membership.company_id !== companyId || !["owner", "admin"].includes(membership.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let body: unknown;
@@ -39,6 +55,47 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create invite" }, { status: 500 });
     }
 
+    const inviteLink = new URL("/invite/accept", request.url);
+    inviteLink.searchParams.set("token", invite.token);
+
+    void (async () => {
+      try {
+        const [{ data: company }, { data: inviterProfile }] = await Promise.all([
+          supabaseAdmin
+            .from("companies")
+            .select("name")
+            .eq("id", companyId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("user_profiles")
+            .select("first_name, last_name, email")
+            .eq("user_id", userId)
+            .maybeSingle()
+        ]);
+
+        const inviterName = [inviterProfile?.first_name, inviterProfile?.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || inviterProfile?.email || "Membre BTPilot";
+
+        const companyName = company?.name ?? "Votre entreprise";
+
+        await sendInviteEmail({
+          toEmail: invite.email,
+          inviterName,
+          companyName,
+          inviteLink: inviteLink.toString()
+        });
+      } catch (emailError) {
+        console.error("[company/invites] Invite email send failed", {
+          companyId,
+          inviteId: invite.id,
+          userId,
+          error: emailError
+        });
+      }
+    })();
+
     return NextResponse.json({ invite: stripInviteToken(invite) }, { status: 201 });
   } catch (error) {
     console.error("[company/invites] Create invite failed", { companyId, userId, error });
@@ -46,14 +103,17 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const companyId = await getCompanyIdForUser(userId);
+  const url = new URL(request.url);
+  const requestedCompanyId = url.searchParams.get("company_id");
+
+  const companyId = await getCompanyIdForUser(userId, requestedCompanyId);
 
   if (!companyId) {
     return NextResponse.json({ error: "No company found for the current user" }, { status: 400 });

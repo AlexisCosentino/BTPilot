@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { deleteEntries, deleteProject, deleteStorageForEntries, getEntriesForDeletion } from "./cascade.service";
-import { getCompanyIdForUser } from "./permissions";
+import { checkMembership } from "./permissions";
 import {
   getProjectEntries,
   getProjectForCompany,
@@ -10,7 +10,7 @@ import {
 } from "./project.service";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params;
@@ -20,13 +20,25 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const companyId = await getCompanyIdForUser(userId);
+  const url = new URL(request.url);
+  const companyId = url.searchParams.get("company_id");
 
   if (!companyId) {
     return NextResponse.json(
-      { error: "No company found for the current user" },
+      { error: "company_id is required" },
       { status: 400 }
     );
+  }
+
+  const membership = await checkMembership(userId, companyId);
+  if (!membership.ok) {
+    if (membership.errorType === "network") {
+      return NextResponse.json(
+        { error: "Temporary service error, please retry" },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const project = await getProjectForCompany(projectId, companyId);
@@ -51,7 +63,7 @@ export async function GET(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params;
@@ -61,13 +73,25 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const companyId = await getCompanyIdForUser(userId);
+  const url = new URL(request.url);
+  const companyId = url.searchParams.get("company_id");
 
   if (!companyId) {
     return NextResponse.json(
-      { error: "No company found for the current user" },
+      { error: "company_id is required" },
       { status: 400 }
     );
+  }
+
+  const membership = await checkMembership(userId, companyId);
+  if (!membership.ok) {
+    if (membership.errorType === "network") {
+      return NextResponse.json(
+        { error: "Temporary service error, please retry" },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const project = await getProjectForCompany(projectId, companyId);

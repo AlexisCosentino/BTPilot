@@ -4,12 +4,14 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { HardHat, LogIn, Plus } from "lucide-react";
 
+import { useActiveCompany } from "../components/active-company-context";
 import { formatProjectDate } from "./projects/helpers/date";
 import { getProjectStatusTone } from "./projects/helpers/status";
 import { useProjects } from "./projects/hooks/useProjects";
 
 export default function DashboardPage() {
-  const { projects, loading, error } = useProjects();
+  const { activeCompanyId, loading: companiesLoading, error: companiesError } = useActiveCompany();
+  const { projects, loading, error } = useProjects(activeCompanyId);
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6">
@@ -44,7 +46,15 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {loading ? (
+      {companiesLoading ? (
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-text-muted">Chargement des entreprises...</p>
+        </div>
+      ) : companiesError ? (
+        <div className="rounded-lg border border-warning/30 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-warning">{companiesError}</p>
+        </div>
+      ) : loading ? (
         <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
           <p className="text-sm text-text-muted">Chargement des chantiers...</p>
         </div>
