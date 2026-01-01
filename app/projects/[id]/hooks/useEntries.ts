@@ -102,7 +102,8 @@ export function useEntries(
             type,
             content: payload.text,
             entry_subtype: payload.entrySubtype ?? null
-          })
+          }),
+          credentials: "include"
         });
       } else {
         const formData = new FormData();
@@ -110,7 +111,8 @@ export function useEntries(
         formData.append("file", payload.file);
         response = await fetch(withCompany(`/api/projects/${projectId}/entries`), {
           method: "POST",
-          body: formData
+          body: formData,
+          credentials: "include"
         });
       }
 
@@ -177,7 +179,8 @@ export function useEntries(
       const response = await fetch(withCompany(`/api/projects/${projectId}/entries`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entryId, text: trimmed, entry_subtype: editingSubtype })
+        body: JSON.stringify({ entryId, text: trimmed, entry_subtype: editingSubtype }),
+        credentials: "include"
       });
       const body = (await response.json().catch(() => ({}))) as { entry?: Entry; error?: string };
 
@@ -220,7 +223,8 @@ export function useEntries(
       const response = await fetch(withCompany(`/api/projects/${projectId}/entries`), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entryId: entry.id })
+        body: JSON.stringify({ entryId: entry.id }),
+        credentials: "include"
       });
 
       const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -251,7 +255,8 @@ export function useEntries(
       const response = await fetch(withCompany(`/api/projects/${projectId}/entries/transcribe`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entryId })
+        body: JSON.stringify({ entryId }),
+        credentials: "include"
       });
 
       const body = (await response.json().catch(() => ({}))) as { entry?: Entry; error?: string };

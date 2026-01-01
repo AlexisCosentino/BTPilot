@@ -1,6 +1,17 @@
-export async function listProjects(companyId?: string) {
-  const search = companyId ? `?company_id=${companyId}` : "";
-  return fetch(`/api/projects${search}`, { cache: "no-store" });
+export type ProjectListStatus = "archived" | "active";
+
+export async function listProjects(companyId?: string, status?: ProjectListStatus) {
+  const url = new URL("/api/projects", window.location.origin);
+
+  if (companyId) {
+    url.searchParams.set("company_id", companyId);
+  }
+
+  if (status === "archived") {
+    url.searchParams.set("status", "archived");
+  }
+
+  return fetch(url.pathname + url.search, { cache: "no-store", credentials: "include" });
 }
 
 export type CreateProjectPayload = {
@@ -21,6 +32,7 @@ export async function createProject(payload: CreateProjectPayload, companyId?: s
   return fetch("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    credentials: "include"
   });
 }

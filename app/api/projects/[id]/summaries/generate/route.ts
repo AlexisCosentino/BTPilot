@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { getAuth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { generateProjectSummaries, mergeSummaryMetadata } from "../../../../../../lib/ai/summaries";
 import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
@@ -7,11 +7,11 @@ import { getCompanyIdForUser, getProjectSnapshot } from "../../entries/permissio
 import { getProjectEntries } from "../../project.service";
 
 export async function POST(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params;
-  const { userId } = await auth();
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { getAuth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
@@ -18,8 +18,8 @@ function normalizeNullableText(value: unknown): string | null {
 
 const profileSelect = "user_id, email, first_name, last_name, job_title, phone";
 
-export async function GET() {
-  const { userId } = await auth();
+export async function GET(request: NextRequest) {
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,8 +39,8 @@ export async function GET() {
   return NextResponse.json({ profile: data ?? null });
 }
 
-export async function PATCH(request: Request) {
-  const { userId } = await auth();
+export async function PATCH(request: NextRequest) {
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

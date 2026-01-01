@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { getAuth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { getInviteByToken, markInviteAccepted } from "../invites.service";
@@ -9,8 +9,8 @@ import {
   type InviteResponse
 } from "../helpers";
 
-export async function POST(request: Request) {
-  const { userId } = await auth();
+export async function POST(request: NextRequest) {
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

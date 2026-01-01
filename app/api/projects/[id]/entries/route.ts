@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { getAuth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import {
   AUDIO_SIZE_LIMIT_BYTES,
@@ -23,11 +23,11 @@ import { AUDIO_BUCKET, ensureBucketExists, PHOTO_BUCKET, uploadFileToStorage } f
 import { transcribeEntryAudio } from "./transcription.service";
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params;
-  const { userId } = await auth();
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -58,11 +58,11 @@ export async function GET(
 }
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params;
-  const { userId } = await auth();
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -228,11 +228,11 @@ export async function POST(
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params;
-  const { userId } = await auth();
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -276,11 +276,11 @@ export async function DELETE(
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: projectId } = await params;
-  const { userId } = await auth();
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

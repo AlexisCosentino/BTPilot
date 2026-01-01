@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { getAuth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthContext, getPrimaryEmail, loadClerkUser } from "./clerk.service";
+import { getPrimaryEmail, loadClerkUser } from "./clerk.service";
 import { getExistingMembership, upsertMembership } from "./membership.service";
 import { createSupabaseUser, listSupabaseUsers } from "./supabaseAuth.service";
 import { supabaseAdmin, type Database } from "../../../../lib/supabaseAdmin";
@@ -15,8 +16,8 @@ type CompanyMemberWithProfile = Database["public"]["Tables"]["company_members"][
   user_profiles?: MemberProfile;
 };
 
-export async function POST(request: Request) {
-  const { userId, sessionId } = await getAuthContext();
+export async function POST(request: NextRequest) {
+  const { userId, sessionId } = getAuth(request);
 
   if (!userId) {
     console.warn("[auth/sync] Unauthorized request", { sessionId });

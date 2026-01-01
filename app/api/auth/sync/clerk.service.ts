@@ -1,10 +1,6 @@
 import "server-only";
 
-import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
-
-export async function getAuthContext() {
-  return auth();
-}
+import { clerkClient, currentUser } from "@clerk/nextjs/server";
 
 export async function loadClerkUser(userId: string) {
   return currentUser().catch((error) => {

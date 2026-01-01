@@ -2,9 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { SignInButton, useAuth } from "@clerk/nextjs";
-import { Loader2, LogIn, Mail, User, UserPlus, Users, X } from "lucide-react";
+import { Archive, Loader2, LogIn, Mail, RotateCcw, User, UserPlus, Users, X } from "lucide-react";
 
-import { useActiveCompany } from "../../../components/active-company-context";
+import { useActiveCompany } from "../../components/active-company-context";
+import { formatProjectDate } from "../projects/helpers/date";
+import { listProjects } from "../projects/services/projectsApi";
+import { restoreProject } from "../projects/[id]/services/projectApi";
+import type { ProjectSummary } from "../projects/types";
 import { createInvite, fetchAuthSync, listInvites, revokeInvite } from "./services/teamApi";
 
 type TeamMember = {
@@ -47,6 +51,11 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [archivedProjects, setArchivedProjects] = useState<ProjectSummary[]>([]);
+  const [archivedLoading, setArchivedLoading] = useState(true);
+  const [archivedError, setArchivedError] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -67,8 +76,13 @@ export default function TeamPage() {
     if (!isSignedIn) {
       setMembers([]);
       setInvites([]);
+      setArchivedProjects([]);
+      setArchivedLoading(false);
+      setArchivedError(null);
+      setRestoringId(null);
+      setRestoreError(null);
       setLoading(false);
-      setError("Connectez-vous pour voir votre equipe.");
+      setError("Connectez-vous pour voir votre entreprise.");
       return;
     }
 
@@ -77,6 +91,11 @@ export default function TeamPage() {
     if (!activeCompanyId) {
       setMembers([]);
       setInvites([]);
+      setArchivedProjects([]);
+      setArchivedLoading(false);
+      setArchivedError(null);
+      setRestoringId(null);
+      setRestoreError(null);
       setLoading(false);
       setError(companiesError || "Aucune entreprise active selectionnee.");
       return;
@@ -85,6 +104,9 @@ export default function TeamPage() {
     const load = async () => {
       setLoading(true);
       setError(null);
+      setArchivedLoading(true);
+      setArchivedError(null);
+      setRestoreError(null);
 
       try {
         let nextMembers: TeamMember[] = [];
@@ -102,10 +124,10 @@ export default function TeamPage() {
               typeof authBody.company?.name === "string" ? authBody.company.name.trim() : "";
             nextCompanyName = parsedCompanyName || null;
           } else {
-            console.error("[company/team] Auth sync did not succeed", { status: authSyncRes.status });
+            console.error("[company] Auth sync did not succeed", { status: authSyncRes.status });
           }
         } catch (authError) {
-          console.error("[company/team] Auth sync failed", authError);
+          console.error("[company] Auth sync failed", authError);
         }
 
         const invitesRes = await listInvites(activeCompanyId);
@@ -124,13 +146,39 @@ export default function TeamPage() {
         setInvites(Array.isArray(invitesBody.invites) ? invitesBody.invites : []);
         setLoading(false);
       } catch (err) {
-        console.error("[company/team] Failed to load data", err);
+        console.error("[company] Failed to load data", err);
         if (!active) return;
         setMembers([]);
         setInvites([]);
         setCompanyName(null);
-        setError("Impossible de charger les donnees de l'equipe.");
+        setError("Impossible de charger les donnees de l'entreprise.");
         setLoading(false);
+      }
+
+      try {
+        const archivedRes = await listProjects(activeCompanyId, "archived");
+
+        if (!active) return;
+
+        if (!archivedRes.ok) {
+          const body = (await archivedRes.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error || "Chargement des chantiers archives impossible.");
+        }
+
+        const archivedBody = (await archivedRes.json().catch(() => ({}))) as {
+          projects?: ProjectSummary[];
+        };
+
+        setArchivedProjects(Array.isArray(archivedBody.projects) ? archivedBody.projects : []);
+      } catch (err) {
+        console.error("[company] Failed to load archived projects", err);
+        if (!active) return;
+        setArchivedProjects([]);
+        setArchivedError("Impossible de charger les chantiers archives.");
+      } finally {
+        if (active) {
+          setArchivedLoading(false);
+        }
       }
     };
 
@@ -170,7 +218,7 @@ export default function TeamPage() {
         setInvites(Array.isArray(invitesBody.invites) ? invitesBody.invites : []);
       }
     } catch (err) {
-      console.error("[company/team] Failed to create invite", err);
+      console.error("[company] Failed to create invite", err);
       setInviteError("Invitation impossible. Reessayez.");
     } finally {
       setIsInviting(false);
@@ -197,10 +245,33 @@ export default function TeamPage() {
         setInvites(Array.isArray(invitesBody.invites) ? invitesBody.invites : []);
       }
     } catch (err) {
-      console.error("[company/team] Failed to revoke invite", err);
+      console.error("[company] Failed to revoke invite", err);
       setInviteError("Revocation impossible.");
     } finally {
       setRevokingId(null);
+    }
+  };
+
+  const handleRestore = async (projectId: string) => {
+    if (!activeCompanyId) return;
+
+    setRestoreError(null);
+    setRestoringId(projectId);
+
+    try {
+      const response = await restoreProject(projectId, activeCompanyId);
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(body.error || "Restauration impossible.");
+      }
+
+      setArchivedProjects((current) => current.filter((project) => project.id !== projectId));
+    } catch (err) {
+      console.error("[company] Failed to restore project", err);
+      setRestoreError("Restauration impossible.");
+    } finally {
+      setRestoringId(null);
     }
   };
 
@@ -218,7 +289,7 @@ export default function TeamPage() {
     return (
       <section className="mx-auto flex max-w-4xl flex-col gap-4 sm:gap-6">
         <header className="rounded-lg border border-brand/15 bg-white px-4 py-4 shadow-sm sm:px-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Equipe</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Entreprise</p>
           <h1 className="mt-1 text-3xl font-bold leading-tight text-text-main">Connexion requise</h1>
           <p className="mt-1 text-sm text-text-muted">
             Connectez-vous pour gerer les membres de votre entreprise.
@@ -237,8 +308,8 @@ export default function TeamPage() {
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-4 overflow-x-hidden sm:gap-6">
       <header className="rounded-lg border border-brand/15 bg-white px-4 py-4 shadow-sm sm:px-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Equipe</p>
-        <h1 className="mt-1 text-3xl font-bold leading-tight text-text-main">Gestion d&apos;equipe</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Entreprise</p>
+        <h1 className="mt-1 text-3xl font-bold leading-tight text-text-main">Gestion d&apos;entreprise</h1>
         <p className="mt-1 text-sm text-text-muted">
           Invitez vos collaborateurs et suivez les membres actifs de l&apos;entreprise.
         </p>
@@ -378,7 +449,8 @@ export default function TeamPage() {
           </section>
         </div>
 
-        <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="space-y-4">
+          <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-light text-success">
               <UserPlus className="h-5 w-5" aria-hidden="true" />
@@ -419,6 +491,58 @@ export default function TeamPage() {
             ) : null}
           </form>
         </section>
+
+          <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-light text-warning">
+                <Archive className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 className="text-base font-semibold text-text-main">Chantiers archives</h2>
+                <p className="text-xs text-text-muted">Projets classes en archive.</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {archivedLoading ? (
+                <p className="text-sm text-text-muted">Chargement des chantiers archives...</p>
+              ) : archivedError ? (
+                <p className="text-sm font-semibold text-warning">{archivedError}</p>
+              ) : !archivedProjects.length ? (
+                <p className="text-sm text-text-muted">Aucun chantier archive.</p>
+              ) : (
+                archivedProjects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="flex flex-col gap-2 rounded-md border border-gray-100 px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-text-main break-all">{project.name}</p>
+                      <p className="text-xs text-text-muted">Cree le {formatProjectDate(project.created_at)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRestore(project.id)}
+                      disabled={restoringId === project.id}
+                      className="inline-flex items-center gap-2 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-text-main shadow-sm transition hover:border-gray-300 hover:bg-surface-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto w-full justify-center sm:justify-normal"
+                    >
+                      {restoringId === project.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                      )}
+                      Restaurer
+                    </button>
+                  </div>
+                ))
+              )}
+
+              {restoreError ? (
+                <p className="text-xs font-semibold text-warning">{restoreError}</p>
+              ) : null}
+            </div>
+          </section>
+        </div>
       </div>
     </section>
   );

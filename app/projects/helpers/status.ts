@@ -15,7 +15,8 @@ export const projectStatusTone: Record<ProjectStatus, { label: string; tone: str
   in_progress: { label: "Chantier en cours", tone: "bg-accent/15 text-accent" },
   on_hold: { label: "En pause", tone: "bg-warning/10 text-warning" },
   completed: { label: "Termine", tone: "bg-success/15 text-success" },
-  canceled: { label: "Annule", tone: "bg-warning/10 text-warning" }
+  canceled: { label: "Annule", tone: "bg-warning/10 text-warning" },
+  archived: { label: "Archive", tone: "bg-gray-100 text-text-muted" }
 };
 
 export function getProjectStatusTone(status: ProjectStatus | string) {

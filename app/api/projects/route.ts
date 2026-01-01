@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { getAuth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
@@ -30,8 +30,8 @@ async function resolveCompanyIdForUser(
   return data?.company_id ?? null;
 }
 
-export async function POST(request: Request) {
-  const { userId } = await auth();
+export async function POST(request: NextRequest) {
+  const { userId } = getAuth(request);
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -112,8 +112,8 @@ export async function POST(request: Request) {
   return NextResponse.json({ id: data.id }, { status: 201 });
 }
 
-export async function GET(request: Request) {
-  const { userId } = await auth();
+export async function GET(request: NextRequest) {
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -121,6 +121,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const requestedCompanyId = url.searchParams.get("company_id");
+  const requestedStatus = url.searchParams.get("status");
 
   const companyId = await resolveCompanyIdForUser(userId, requestedCompanyId).catch((error) => {
     console.error("[api/projects] Company lookup failed", { userId, error });
@@ -131,11 +132,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ projects: [] });
   }
 
-  const { data, error } = await supabaseAdmin
+  const query = supabaseAdmin
     .from("projects")
     .select("id, name, status, created_at")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
+
+  if (requestedStatus === "archived") {
+    query.eq("status", "archived");
+  } else {
+    query.neq("status", "archived");
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[api/projects] Failed to list projects", { userId, companyId, error });

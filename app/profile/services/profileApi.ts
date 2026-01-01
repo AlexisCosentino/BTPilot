@@ -11,7 +11,7 @@ export type UserProfile = {
 };
 
 export async function fetchProfile() {
-  return fetch("/api/profile", { cache: "no-store" });
+  return fetch("/api/profile", { cache: "no-store", credentials: "include" });
 }
 
 export async function updateProfile(payload: {
@@ -23,6 +23,7 @@ export async function updateProfile(payload: {
   return fetch("/api/profile", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    credentials: "include"
   });
 }

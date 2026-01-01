@@ -4,7 +4,8 @@ export type ProjectStatus =
   | "in_progress"
   | "on_hold"
   | "completed"
-  | "canceled";
+  | "canceled"
+  | "archived";
 
 export type ProjectSummary = {
   id: string;

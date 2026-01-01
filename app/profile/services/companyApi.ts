@@ -12,6 +12,7 @@ export async function createCompany(payload: { name: string }) {
   return fetch("/api/companies", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    credentials: "include"
   });
 }

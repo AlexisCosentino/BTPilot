@@ -15,11 +15,24 @@ function withCompany(path: string, companyId?: string | null) {
 }
 
 export function fetchProjectDetail(projectId: string, companyId?: string | null) {
-  return fetch(withCompany(`/api/projects/${projectId}`, companyId), { cache: "no-store" });
+  return fetch(withCompany(`/api/projects/${projectId}`, companyId), {
+    cache: "no-store",
+    credentials: "include"
+  });
 }
 
-export function deleteProject(projectId: string, companyId?: string | null) {
-  return fetch(withCompany(`/api/projects/${projectId}`, companyId), { method: "DELETE" });
+export function archiveProject(projectId: string, companyId?: string | null) {
+  return fetch(withCompany(`/api/projects/${projectId}/archive`, companyId), {
+    method: "PATCH",
+    credentials: "include"
+  });
+}
+
+export function restoreProject(projectId: string, companyId?: string | null) {
+  return fetch(withCompany(`/api/projects/${projectId}/restore`, companyId), {
+    method: "PATCH",
+    credentials: "include"
+  });
 }
 
 export function updateProjectClient(
@@ -30,7 +43,8 @@ export function updateProjectClient(
   return fetch(withCompany(`/api/projects/${projectId}/client`, companyId), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    credentials: "include"
   });
 }
 
@@ -42,18 +56,21 @@ export function updateProjectStatus(
   return fetch(withCompany(`/api/projects/${projectId}/status`, companyId), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ new_status: newStatus })
+    body: JSON.stringify({ new_status: newStatus }),
+    credentials: "include"
   });
 }
 
 export function fetchProjectSummaries(projectId: string, companyId?: string | null) {
   return fetch(withCompany(`/api/projects/${projectId}/summaries`, companyId), {
-    cache: "no-store"
+    cache: "no-store",
+    credentials: "include"
   });
 }
 
 export function generateProjectSummariesApi(projectId: string, companyId?: string | null) {
   return fetch(withCompany(`/api/projects/${projectId}/summaries/generate`, companyId), {
-    method: "POST"
+    method: "POST",
+    credentials: "include"
   });
 }

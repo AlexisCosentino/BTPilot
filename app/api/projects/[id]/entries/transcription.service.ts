@@ -29,9 +29,18 @@ async function downloadAudioFile(audioUrl: string): Promise<{
   return { buffer: Buffer.from(arrayBuffer), mimeType };
 }
 
+function normalizeMimeType(mimeType: string | null): string | null {
+  if (!mimeType) {
+    return null;
+  }
+
+  return mimeType.split(";")[0]?.trim() || null;
+}
+
 async function getAudioDurationSeconds(buffer: Buffer, mimeType: string | null): Promise<number | null> {
   try {
-    const metadata = await parseBuffer(buffer, mimeType ?? undefined, { duration: true });
+    const normalizedMimeType = normalizeMimeType(mimeType);
+    const metadata = await parseBuffer(buffer, normalizedMimeType ?? undefined, { duration: true });
 
     return typeof metadata.format.duration === "number" ? metadata.format.duration : null;
   } catch (err) {
@@ -48,9 +57,10 @@ async function runTranscription(
     throw new Error("Missing OpenAI API key");
   }
 
-  const extension = mimeType?.split("/")[1] || "webm";
+  const normalizedMimeType = normalizeMimeType(mimeType) ?? "audio/webm";
+  const extension = normalizedMimeType.split("/")[1] || "webm";
   const file = new File([new Uint8Array(buffer)], `audio.${extension}`, {
-    type: mimeType ?? "audio/webm"
+    type: normalizedMimeType
   });
 
   const result = await openai.audio.transcriptions.create({
@@ -122,7 +132,7 @@ export async function transcribeEntryAudio(
       transcript_text: null,
       transcript_model: null,
       transcript_language: null,
-      transcript_error: err instanceof Error ? err.message : "Transcription indisponible."
+      transcript_error: "Transcription indisponible pour ce mémo"
     });
   }
 

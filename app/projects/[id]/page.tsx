@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { Composer } from "./components/Composer";
-import { DeleteProjectCard } from "./components/DeleteProjectCard";
+import { ArchiveProjectCard } from "./components/ArchiveProjectCard";
 import { EntryList } from "./components/EntryList";
 import { ProjectEditPanel } from "./components/ProjectEditPanel";
 import { ProjectSummaryCard } from "./components/ProjectSummaryCard";
@@ -15,7 +15,7 @@ import { IMAGE_SIZE_LIMIT_BYTES, useImageProcessor } from "./hooks/useImageProce
 import { useEntries } from "./hooks/useEntries";
 import { useProject } from "./hooks/useProject";
 import { useSummaries } from "./hooks/useSummaries";
-import { deleteProject } from "./services/projectApi";
+import { archiveProject } from "./services/projectApi";
 import type { Entry, EntrySubtype } from "./types";
 import { useActiveCompany } from "../../../components/active-company-context";
 
@@ -27,7 +27,7 @@ export default function ProjectDetailPage() {
   const { activeCompanyId, loading: companyLoading, error: companyError } = useActiveCompany();
 
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
-  const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [isArchivingProject, setIsArchivingProject] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   const {
@@ -77,31 +77,6 @@ export default function ProjectDetailPage() {
   } = useEntries(id, initialEntries, activeCompanyId);
   const { resizeAndCompressImage } = useImageProcessor();
   const { isRecording, startRecording, stopRecording } = useAudioRecorder();
-
-  if (companyLoading) {
-    return (
-      <section className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6">
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-text-muted">Chargement de l'entreprise...</p>
-        </div>
-      </section>
-    );
-  }
-
-  if (!activeCompanyId || companyError) {
-    return (
-      <section className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6">
-        <div className="rounded-lg border border-warning/30 bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-warning">
-            {companyError || "Aucune entreprise active sélectionnée."}
-          </p>
-          <p className="mt-1 text-sm text-text-muted">
-            Choisissez une entreprise pour ouvrir ce chantier.
-          </p>
-        </div>
-      </section>
-    );
-  }
 
   const handleAddText = useCallback(async () => {
     if (!textValue.trim()) {
@@ -154,32 +129,58 @@ export default function ProjectDetailPage() {
     });
   }, [createEntry, setComposerError, startRecording]);
 
-  const handleDeleteProject = useCallback(async () => {
+  const handleArchiveProject = useCallback(async () => {
     if (!project || !id) return;
 
     const confirmed = window.confirm(
-      "Supprimer ce chantier et toutes les notes ? Cette action est définitive."
+      "Archiver ce chantier ? Il restera accessible dans les archives."
     );
 
     if (!confirmed) return;
 
     setProjectActionError(null);
-    setIsDeletingProject(true);
+    setIsArchivingProject(true);
 
     try {
-      const response = await deleteProject(id, activeCompanyId);
+      const response = await archiveProject(id, activeCompanyId);
       const body = (await response.json().catch(() => ({}))) as { error?: string };
 
       if (!response.ok) {
-        throw new Error(body.error || "Suppression du chantier impossible.");
+        throw new Error(body.error || "Archivage du chantier impossible.");
       }
 
       router.push("/");
     } catch (err) {
-      setProjectActionError("Suppression du chantier impossible.");
-      setIsDeletingProject(false);
+      setProjectActionError("Archivage du chantier impossible.");
+      setIsArchivingProject(false);
     }
-  }, [id, project, router]);
+  }, [activeCompanyId, id, project, router]);
+
+
+  if (companyLoading) {
+    return (
+      <section className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6">
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-text-muted">Chargement de l'entreprise...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!activeCompanyId || companyError) {
+    return (
+      <section className="mx-auto flex max-w-5xl flex-col gap-4 sm:gap-6">
+        <div className="rounded-lg border border-warning/30 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-warning">
+            {companyError || "Aucune entreprise active sélectionnée."}
+          </p>
+          <p className="mt-1 text-sm text-text-muted">
+            Choisissez une entreprise pour ouvrir ce chantier.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   if (!id) {
     return (
@@ -282,10 +283,10 @@ export default function ProjectDetailPage() {
             />
           </div>
           {project ? (
-            <DeleteProjectCard
-              isDeleting={isDeletingProject}
+            <ArchiveProjectCard
+              isArchiving={isArchivingProject}
               projectActionError={projectActionError}
-              onDelete={handleDeleteProject}
+              onArchive={handleArchiveProject}
             />
           ) : null}
         </>

@@ -30,3 +30,6 @@ public/sw.js
 venv/
 __pycache__/
 *.pyc
+
+# clerk configuration (can include secrets)
+/.clerk/

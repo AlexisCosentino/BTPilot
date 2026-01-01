@@ -1,11 +1,11 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { getAuth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { getUserCompanies } from "../../../lib/getUserCompanies";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
-export async function GET() {
-  const { userId } = await auth();
+export async function GET(request: NextRequest) {
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,8 +20,8 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
-  const { userId } = await auth();
+export async function POST(request: NextRequest) {
+  const { userId } = getAuth(request);
 
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

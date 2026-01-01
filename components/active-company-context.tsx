@@ -37,7 +37,10 @@ const ActiveCompanyContext = createContext<ActiveCompanyContextValue | undefined
 const STORAGE_KEY = "btpilot:active-company-id";
 
 async function fetchCompanies(): Promise<Company[]> {
-  const response = await fetch("/api/companies", { cache: "no-store" });
+  const response = await fetch("/api/companies", {
+    cache: "no-store",
+    credentials: "include"
+  });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error || "Chargement des entreprises impossible.");

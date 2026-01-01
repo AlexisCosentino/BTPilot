@@ -33,10 +33,10 @@ export function AuthHeader() {
             </SignedOut>
             <SignedIn>
               <Link
-                href="/company/team"
+                href="/company"
                 className="rounded-md border border-white/40 px-3 py-1.5 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
-                Équipe
+                Entreprise
               </Link>
               <Link
                 href="/profile"
