@@ -16,6 +16,27 @@ type SummaryItem = {
   isStatusChange: boolean;
 };
 
+type SummaryBadgeState = "waiting" | "pending" | "up_to_date" | "late";
+
+const SUMMARY_BADGES: Record<SummaryBadgeState, { label: string; className: string }> = {
+  waiting: {
+    label: "En attente",
+    className: "border-gray-200 bg-gray-100 text-gray-700"
+  },
+  pending: {
+    label: "Mise a jour",
+    className: "border-orange-200 bg-orange-100 text-orange-800"
+  },
+  up_to_date: {
+    label: "A jour",
+    className: "border-emerald-200 bg-emerald-100 text-emerald-800"
+  },
+  late: {
+    label: "En retard",
+    className: "border-red-200 bg-red-100 text-red-800"
+  }
+};
+
 const LABEL_MAP: Record<string, string> = {
   TASK: "Tâche",
   TACHE: "Tâche",
@@ -134,11 +155,44 @@ function parseDetailLines(detailText: string | null, options?: { dropTechnicalLa
     });
 }
 
+function parseIsoDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? null : new Date(timestamp);
+}
+
+function resolveSummaryBadgeState({
+  eligibleEntryCount,
+  summaryState,
+  generatedAt,
+  lastEntryAt
+}: {
+  eligibleEntryCount: number;
+  summaryState: ProjectSummaries["ai_summary_state"];
+  generatedAt: string | null;
+  lastEntryAt: string | null;
+}): SummaryBadgeState {
+  if (eligibleEntryCount < 2) return "waiting";
+
+  if (summaryState === "dirty" || summaryState === "scheduled" || summaryState === "generating") {
+    return "pending";
+  }
+
+  const generatedAtDate = parseIsoDate(generatedAt);
+  const lastEntryDate = parseIsoDate(lastEntryAt);
+
+  if (!generatedAtDate || !lastEntryDate) return "late";
+
+  return generatedAtDate.getTime() >= lastEntryDate.getTime() ? "up_to_date" : "late";
+}
+
 type SummariesCardProps = {
   project: Project | null;
   statusEvents: StatusEvent[];
   summaries: ProjectSummaries;
   projectId: string;
+  eligibleEntryCount: number;
+  lastEligibleEntryAt: string | null;
   loading: boolean;
   isGenerating: boolean;
   error: string | null;
@@ -151,6 +205,8 @@ export function SummariesCard({
   statusEvents,
   summaries,
   projectId,
+  eligibleEntryCount,
+  lastEligibleEntryAt,
   loading,
   isGenerating,
   error,
@@ -208,8 +264,21 @@ export function SummariesCard({
     ]
   );
 
-  const updatedAt =
-    summaries.ai_summary_updated_at && new Date(summaries.ai_summary_updated_at).toLocaleString();
+  const hasMinimumEntries = eligibleEntryCount >= 2;
+  const summaryState = summaries.ai_summary_state ?? null;
+  const badgeState = resolveSummaryBadgeState({
+    eligibleEntryCount,
+    summaryState,
+    generatedAt: summaries.ai_summary_updated_at,
+    lastEntryAt: lastEligibleEntryAt
+  });
+  const badge = SUMMARY_BADGES[badgeState];
+  const isPending = badgeState === "pending";
+  const updatedAtDate = summaries.ai_summary_updated_at
+    ? new Date(summaries.ai_summary_updated_at)
+    : null;
+  const updatedDateText = updatedAtDate ? formatDate(updatedAtDate) : null;
+  const updatedTimeText = updatedAtDate ? formatTime(updatedAtDate) : null;
 
   const hasClientSummary = useMemo(
     () =>
@@ -238,6 +307,9 @@ export function SummariesCard({
       summaries.ai_summary_artisan_short
     ]
   );
+
+  const isBusy = isGenerating || isPending;
+  const canGenerate = hasMinimumEntries && !isBusy;
 
   const handleExport = useCallback(
     async (type: "client" | "artisan") => {
@@ -288,11 +360,26 @@ export function SummariesCard({
     <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Synthèse IA</p>
-          {updatedAt ? (
-            <p className="text-sm text-text-muted">Mise à jour le {updatedAt}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Synthèse IA
+            </p>
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${badge.className}`}
+            >
+              {badge.label}
+            </span>
+          </div>
+          {!hasMinimumEntries ? (
+            <p className="text-sm text-text-muted">Synthese en attente (pas assez d'entrees)</p>
+          ) : isPending || isGenerating ? (
+            <p className="text-sm text-text-muted">Mise a jour en cours</p>
+          ) : updatedDateText && updatedTimeText ? (
+            <p className="text-sm text-text-muted">
+              Derniere synthese generee le {updatedDateText} a {updatedTimeText}
+            </p>
           ) : (
-            <p className="text-sm text-text-muted">Pas encore de synthèse</p>
+            <p className="text-sm text-text-muted">Pas encore de synthese</p>
           )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -320,9 +407,9 @@ export function SummariesCard({
             type="button"
             className="inline-flex items-center rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-70"
             onClick={onGenerate}
-            disabled={isGenerating}
+            disabled={!canGenerate}
           >
-            {isGenerating ? "Génération..." : "Générer la synthèse"}
+            {isBusy ? "Mise a jour en cours..." : "Generer la synthese"}
           </button>
         </div>
       </div>

@@ -15,7 +15,10 @@ const emptySummaries: ProjectSummaries = {
   ai_summary_client: null,
   ai_summary_client_short: null,
   ai_summary_client_detail: null,
-  ai_summary_updated_at: null
+  ai_summary_updated_at: null,
+  ai_summary_state: null,
+  ai_summary_dirty_at: null,
+  ai_summary_scheduled_for: null
 };
 
 export function useSummaries(projectId: string | null, companyId: string | null) {
@@ -77,6 +80,19 @@ export function useSummaries(projectId: string | null, companyId: string | null)
       void loadSummaries();
     }
   }, [projectId, loadSummaries]);
+
+  const isPending =
+    state.ai_summary_state === "dirty" ||
+    state.ai_summary_state === "scheduled" ||
+    state.ai_summary_state === "generating";
+
+  useEffect(() => {
+    if (!projectId || !isPending) return;
+    const interval = setInterval(() => {
+      void loadSummaries();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [projectId, isPending, loadSummaries]);
 
   return {
     summaries: state,

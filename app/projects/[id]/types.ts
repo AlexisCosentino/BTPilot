@@ -19,6 +19,9 @@ export type ProjectSummaries = {
   ai_summary_client_short?: string | null;
   ai_summary_client_detail?: string | null;
   ai_summary_updated_at: string | null;
+  ai_summary_state?: "idle" | "dirty" | "scheduled" | "generating" | "ready" | "blocked" | null;
+  ai_summary_dirty_at?: string | null;
+  ai_summary_scheduled_for?: string | null;
 };
 
 export type ClientInfo = {

@@ -52,6 +52,9 @@ export async function GET(
     ai_summary_client: metadata.ai_summary_client ?? null,
     ai_summary_client_short: metadata.ai_summary_client_short ?? null,
     ai_summary_client_detail: metadata.ai_summary_client_detail ?? null,
-    ai_summary_updated_at: metadata.ai_summary_updated_at ?? null
+    ai_summary_updated_at: metadata.ai_summary_updated_at ?? null,
+    ai_summary_state: metadata.ai_summary_state ?? null,
+    ai_summary_dirty_at: metadata.ai_summary_dirty_at ?? null,
+    ai_summary_scheduled_for: metadata.ai_summary_scheduled_for ?? null
   });
 }

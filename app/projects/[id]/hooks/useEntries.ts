@@ -10,7 +10,8 @@ type CreateEntryInput =
 export function useEntries(
   projectId: string | null,
   initialEntries: Entry[],
-  companyId: string | null
+  companyId: string | null,
+  options?: { onEntriesChanged?: () => void }
 ) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -24,6 +25,7 @@ export function useEntries(
   const [savingEntryId, setSavingEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [transcribingEntryId, setTranscribingEntryId] = useState<string | null>(null);
+  const onEntriesChanged = options?.onEntriesChanged;
 
   const withCompany = (path: string) => (companyId ? `${path}?company_id=${companyId}` : path);
 
@@ -131,6 +133,7 @@ export function useEntries(
       setEntries((prev) =>
         [...prev.filter((item) => item.id !== optimisticEntry.id), body.entry as Entry]
       );
+      onEntriesChanged?.();
     } catch (err) {
       console.error("[project-detail] Création de note impossible", err);
       setEntries((prev) => prev.filter((item) => item.id !== optimisticEntry.id));
@@ -195,6 +198,7 @@ export function useEntries(
       setEditingEntryId(null);
       setEditingValue("");
       setEditingSubtype(null);
+      onEntriesChanged?.();
     } catch (err) {
       setEntryActionError("Mise à jour impossible.");
       setEntries((prev) => {

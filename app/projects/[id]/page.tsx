@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { Composer } from "./components/Composer";
@@ -74,9 +74,26 @@ export default function ProjectDetailPage() {
     saveEditingEntry,
     handleDeleteEntry,
     retryTranscription
-  } = useEntries(id, initialEntries, activeCompanyId);
+  } = useEntries(id, initialEntries, activeCompanyId, {
+    onEntriesChanged: () => void reloadSummaries()
+  });
   const { resizeAndCompressImage } = useImageProcessor();
   const { isRecording, startRecording, stopRecording } = useAudioRecorder();
+
+  const { eligibleEntryCount, lastEligibleEntryAt } = useMemo(() => {
+    const eligibleEntries = sortedEntries.filter(
+      (entry) =>
+        !entry.optimistic &&
+        (entry.entry_type === "text" || entry.entry_type === "audio")
+    );
+    const lastEntry = eligibleEntries.length
+      ? eligibleEntries[eligibleEntries.length - 1]
+      : null;
+    return {
+      eligibleEntryCount: eligibleEntries.length,
+      lastEligibleEntryAt: lastEntry ? lastEntry.created_at : null
+    };
+  }, [sortedEntries]);
 
   const handleAddText = useCallback(async () => {
     if (!textValue.trim()) {
@@ -205,6 +222,8 @@ export default function ProjectDetailPage() {
         statusEvents={statusEvents}
         summaries={summaries}
         projectId={id}
+        eligibleEntryCount={eligibleEntryCount}
+        lastEligibleEntryAt={lastEligibleEntryAt}
         loading={summaries.loading}
         isGenerating={isGeneratingSummary}
         error={summaries.error}

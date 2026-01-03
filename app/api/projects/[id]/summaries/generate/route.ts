@@ -1,10 +1,8 @@
 import { getAuth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
-import { generateProjectSummaries, mergeSummaryMetadata } from "../../../../../../lib/ai/summaries";
-import { supabaseAdmin } from "../../../../../../lib/supabaseAdmin";
+import { generateProjectSummariesForProject } from "../summaryScheduler";
 import { getCompanyIdForUser, getProjectSnapshot } from "../../entries/permissions";
-import { getProjectEntries } from "../../project.service";
 
 export async function POST(
   request: NextRequest,
@@ -32,54 +30,27 @@ export async function POST(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  const entries = (await getProjectEntries(projectId, companyId)) ?? [];
+  const result = await generateProjectSummariesForProject({
+    projectId,
+    companyId,
+    mode: "manual"
+  });
 
-  const summaries =
-    entries.length === 0
-      ? {
-          artisan_short: "Rien à résumer pour l'instant.",
-          artisan_detail: "Aucune activité enregistrée.",
-          client_short: "Rien à résumer pour le moment.",
-          client_detail: "Aucune activité enregistrée.",
-          updatedAt: new Date().toISOString()
-        }
-      : await generateProjectSummaries(entries);
-
-  const { data: projectData, error: fetchError } = await supabaseAdmin
-    .from("projects")
-    .select("metadata")
-    .eq("id", projectId)
-    .eq("company_id", companyId)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error("[api/projects/:id/summaries/generate] Failed to fetch metadata", {
-      projectId,
-      companyId,
-      fetchError
-    });
-    return NextResponse.json({ error: "Failed to generate summary" }, { status: 500 });
+  if (result.status === "blocked") {
+    return NextResponse.json(
+      { error: "Synthese en attente (pas assez d'entrees)." },
+      { status: 400 }
+    );
   }
 
-  const mergedMetadata = mergeSummaryMetadata(
-    (projectData?.metadata as Record<string, unknown>) ?? null,
-    summaries
-  );
-
-  const { error: updateError } = await supabaseAdmin
-    .from("projects")
-    .update({ metadata: mergedMetadata })
-    .eq("id", projectId)
-    .eq("company_id", companyId);
-
-  if (updateError) {
-    console.error("[api/projects/:id/summaries/generate] Failed to update metadata", {
-      projectId,
-      companyId,
-      updateError
-    });
-    return NextResponse.json({ error: "Failed to save summary" }, { status: 500 });
+  if (result.status === "skipped") {
+    if (result.reason === "already_generating") {
+      return NextResponse.json({ error: "Generation deja en cours." }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Generation impossible." }, { status: 500 });
   }
+
+  const mergedMetadata = result.metadata;
 
   return NextResponse.json({
     ai_summary_artisan: mergedMetadata.ai_summary_artisan ?? null,
@@ -88,6 +59,9 @@ export async function POST(
     ai_summary_client: mergedMetadata.ai_summary_client ?? null,
     ai_summary_client_short: mergedMetadata.ai_summary_client_short ?? null,
     ai_summary_client_detail: mergedMetadata.ai_summary_client_detail ?? null,
-    ai_summary_updated_at: mergedMetadata.ai_summary_updated_at ?? null
+    ai_summary_updated_at: mergedMetadata.ai_summary_updated_at ?? null,
+    ai_summary_state: mergedMetadata.ai_summary_state ?? null,
+    ai_summary_dirty_at: mergedMetadata.ai_summary_dirty_at ?? null,
+    ai_summary_scheduled_for: mergedMetadata.ai_summary_scheduled_for ?? null
   });
 }

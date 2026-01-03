@@ -21,6 +21,7 @@ import {
 } from "./entries.service";
 import { AUDIO_BUCKET, ensureBucketExists, PHOTO_BUCKET, uploadFileToStorage } from "./storage.service";
 import { transcribeEntryAudio } from "./transcription.service";
+import { scheduleSummaryGeneration } from "../summaries/summaryScheduler";
 
 export async function GET(
   request: NextRequest,
@@ -224,6 +225,16 @@ export async function POST(
     }
   }
 
+  if (entryType === "text" || entryType === "audio") {
+    void scheduleSummaryGeneration({ projectId, companyId, entryType }).catch((err) => {
+      console.error("[api/projects/:id/entries] Failed to schedule summary update", {
+        projectId,
+        companyId,
+        err
+      });
+    });
+  }
+
   return NextResponse.json({ entry: mapEntryRowToResponse(entryRow) }, { status: 201 });
 }
 
@@ -372,6 +383,16 @@ export async function PATCH(
     });
     return NextResponse.json({ error: "Could not update entry" }, { status: 500 });
   }
+
+  void scheduleSummaryGeneration({ projectId, companyId, entryType: entry.entry_type }).catch(
+    (err) => {
+      console.error("[api/projects/:id/entries] Failed to schedule summary update", {
+        projectId,
+        companyId,
+        err
+      });
+    }
+  );
 
   return NextResponse.json({ entry: mapEntryRowToResponse(newEntry as EntryRow) });
 }

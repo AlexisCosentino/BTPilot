@@ -3,6 +3,8 @@ import "server-only";
 import openai from "../openai";
 import type { EntryResponse } from "../../app/api/projects/[id]/entries/entries.service";
 
+export type SummaryState = "idle" | "dirty" | "scheduled" | "generating" | "ready" | "blocked";
+
 export type SummaryMetadata = {
   ai_summary_artisan?: string | null;
   ai_summary_artisan_short?: string | null;
@@ -11,6 +13,11 @@ export type SummaryMetadata = {
   ai_summary_client_short?: string | null;
   ai_summary_client_detail?: string | null;
   ai_summary_updated_at?: string | null;
+  ai_summary_state?: SummaryState | null;
+  ai_summary_dirty_at?: string | null;
+  ai_summary_scheduled_for?: string | null;
+  ai_summary_last_entry_at?: string | null;
+  ai_summary_generation_started_at?: string | null;
 } & Record<string, unknown>;
 
 type ParsedSections = {
@@ -39,7 +46,18 @@ export function extractSummaryMetadata(metadata: Record<string, unknown> | null)
     ai_summary_client_detail:
       typeof safe.ai_summary_client_detail === "string" ? safe.ai_summary_client_detail : null,
     ai_summary_updated_at:
-      typeof safe.ai_summary_updated_at === "string" ? safe.ai_summary_updated_at : null
+      typeof safe.ai_summary_updated_at === "string" ? safe.ai_summary_updated_at : null,
+    ai_summary_state:
+      typeof safe.ai_summary_state === "string" ? (safe.ai_summary_state as SummaryState) : null,
+    ai_summary_dirty_at: typeof safe.ai_summary_dirty_at === "string" ? safe.ai_summary_dirty_at : null,
+    ai_summary_scheduled_for:
+      typeof safe.ai_summary_scheduled_for === "string" ? safe.ai_summary_scheduled_for : null,
+    ai_summary_last_entry_at:
+      typeof safe.ai_summary_last_entry_at === "string" ? safe.ai_summary_last_entry_at : null,
+    ai_summary_generation_started_at:
+      typeof safe.ai_summary_generation_started_at === "string"
+        ? safe.ai_summary_generation_started_at
+        : null
   };
 }
 
@@ -61,7 +79,10 @@ export function mergeSummaryMetadata(
     ai_summary_client: summary.client_short,
     ai_summary_client_short: summary.client_short,
     ai_summary_client_detail: summary.client_detail,
-    ai_summary_updated_at: summary.updatedAt
+    ai_summary_updated_at: summary.updatedAt,
+    ai_summary_state: "ready",
+    ai_summary_dirty_at: null,
+    ai_summary_scheduled_for: null
   };
 }
 
